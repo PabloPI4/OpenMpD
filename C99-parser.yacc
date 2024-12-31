@@ -575,7 +575,7 @@ compound_statement
 	{ 
 		
 	}
-	| '{' block_item_list { if (table.getIsScopeReturn()) { stateFuncion = 4; };  }'}'
+	| '{' block_item_list { if (table.getIsScopeReturn()) { stateFuncion = 4; };  } '}'
 	{ 
 		 if (stateFuncion == 2 && saltaFor == false){
 		 	logFile << "avanzo la maquina de estados de pragma de " << statePragma << " a 5 " << endl;

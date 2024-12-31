@@ -2,6 +2,8 @@ Opened output file: output.c
 Opened generated file: generado.c
 avanzo la maquina de estados de 0 a 1
 avanzo la maquina de estados de 0 a 1
+ENCUENTRA REDUCTION
+Checking if sum exists in the current scope
 entro en pragmas y statePragma= 7
 Checking if x exists in the current scope
 entro en pragmas y statePragma= 1

@@ -67,6 +67,9 @@ for (i=__start;i< __end; i++) {
     x = (i+0.5)*step;
     sum += 4.0/(1.0+x*x);
 }
+double __sum;
+MPI_Reduce(&__sum, &sum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+if (__taskid == 0) { sum = __sum; }
 
 if (__taskid == 0) { 
 pi = step * sum;

@@ -97,7 +97,10 @@ extern void * (*exprParse)(const char*);
 #include <stdio.h>
 #include <string>
 #include <string.h>
+#include <fstream>
 #include "ompparser.hh"
+
+extern std::ofstream logFile;
 
 /* Moved from Makefile.am to the source file to work with --with-pch 
 Liao 12/10/2009 */
@@ -157,7 +160,7 @@ private         { yy_push_state(PRIVATE_STATE); return PRIVATE; }
 firstprivate    { yy_push_state(FIRSTPRIVATE_STATE); return FIRSTPRIVATE; }
 shared          { yy_push_state(SHARED_STATE); return SHARED; }
 none            { return NONE; }
-reduction       { yy_push_state(REDUCTION_STATE); return REDUCTION; }
+reduction       { yy_push_state(REDUCTION_STATE); logFile << "ENCUENTRA REDUCTION\n"; return REDUCTION; }
 copyin          { yy_push_state(COPYIN_STATE); return COPYIN; }
 proc_bind       { yy_push_state(PROC_BIND_STATE); return PROC_BIND; }
 allocate        { yy_push_state(ALLOCATE_STATE); return ALLOCATE; }

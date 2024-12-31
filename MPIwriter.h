@@ -12,6 +12,8 @@ extern int statePragma;
 extern int stateFuncion;
 extern bool saltaFor;
 extern string last_iter, first_iter;
+extern SymbolTable table;
+extern bool enReduce;
 
 
 class MPI_Funcion
@@ -200,10 +202,87 @@ private:
     std::ostringstream includes, globales, variables, sec_pre_inic, c_pre_sec, sec_pre_fin, pre_pragmas, pragmas, sec_pos_inic, c_pos_sec, sec_pos_fin, fin;
     std::vector<std::unique_ptr<MPI_Funcion>> funciones;
     std::ostringstream texto;
-    
+    vector<const char *> args;
+    std::vector<const char *> argsReduceOps;
+    std::vector<const char *> argsReduceVars;
 
 
 public:
+    void addArg(const char *arg){
+        args.push_back(arg);
+    }
+
+    void MPIBroad(){
+    	string broad = "";
+        for(const auto& arg : args){
+    		SymbolInfo *sim = table.getSymbolInfo(arg);
+    		if(sim->isArray()){
+    			broad += "\tMPI_Bcast(" + string(arg) + ", " + sim->getSizeList() + ", MPI_" + sim->getVariableType()  + ", 0, MPI_COMM_WORLD);\n";
+    		}
+    		else{
+    			broad += "\tMPI_Bcast(&" + string(arg) + ", 1, MPI_" + sim->getVariableType() + ", 0, MPI_COMM_WORLD);\n";
+    		}
+    	}
+    	generado << broad << endl;
+        args.clear();
+    }
+
+    std::string calcularReduceFinal() {
+        std::string finalReduce = "";
+
+        if (argsReduceOps.size() != argsReduceVars.size()) {
+            return finalReduce;
+        }
+
+        for (int i = 0; i < argsReduceOps.size(); i++) {
+            string opMPI;
+            if (strcmp(argsReduceOps.at(i), "+") == 0) {
+                opMPI = "MPI_SUM";
+            }
+            else if (strcmp(argsReduceOps.at(i), "*") == 0) {
+                opMPI = "MPI_PROD";
+            }
+            else if (strcmp(argsReduceOps.at(i), "MAX") == 0) {
+                opMPI = "MPI_MAX";
+            }
+            else if (strcmp(argsReduceOps.at(i), "MIN") == 0) {
+                opMPI = "MPI_MIN";
+            }
+            else if (strcmp(argsReduceOps.at(i), "&") == 0) {
+                opMPI = "MPI_LAND";
+            }
+            else if (strcmp(argsReduceOps.at(i), "|") == 0) {
+                opMPI = "MPI_LOR";
+            }
+            else if (strcmp(argsReduceOps.at(i), "^") == 0) {
+                opMPI = "MPI_LXOR";
+            }
+            else {
+                exit(20);
+            }
+
+            SymbolInfo *infoVar = table.getSymbolInfo(argsReduceVars.at(i));
+            std::string toUpper;
+            std::string toLower;
+            toUpper += infoVar->getVariableType();
+            toLower += infoVar->getVariableType();
+
+            for (int j = 0; j < infoVar->getVariableType().size(); j++) {
+                toUpper.at(j) = toupper(infoVar->getVariableType().at(j));
+                toLower.at(j) = tolower(infoVar->getVariableType().at(j));
+            }
+
+            finalReduce += (toLower + " __" + argsReduceVars.at(i) + ";\n");
+            
+            finalReduce = finalReduce + "MPI_Reduce(&__" + argsReduceVars.at(i) + ", &" + argsReduceVars.at(i) + ", 1, MPI_" + toUpper +
+             ", " + opMPI + ", 0, MPI_COMM_WORLD);\n";
+
+            finalReduce = finalReduce + "if (__taskid == 0) { " + argsReduceVars.at(i) + " = __" + argsReduceVars.at(i) + "; }\n";
+        }
+
+        return finalReduce;
+    }
+
     void write_MPI_Includes(){
         //logFile << "entro y escribo en includes" << endl;
         includes << "#include <assert.h>\n";
@@ -228,10 +307,17 @@ public:
 
     void write_MPI_pos(){
         //logFile << "entro en pos" << endl;
+        
+
         if (sec_pos_inic.str().empty() && sec_pos_fin.str().empty())
         {
-            //logFile << "escribo en pos" << endl;
-            sec_pos_inic << "\nif (__taskid == 0) { \n";
+            if(enReduce) {
+                argsReduceOps.push_back("+");
+                argsReduceVars.push_back("sum");
+                sec_pos_inic << calcularReduceFinal() << "\nif (__taskid == 0) { \n";
+                enReduce = false;
+            }
+
             sec_pos_fin << "}\n";
         }
     }
@@ -259,6 +345,15 @@ public:
         case 4:
             fin << texto;
             break;
+        }
+    }
+
+    void MPI_Reduce(bool vars, const char *arg) {
+        if (vars) {
+            argsReduceVars.push_back(arg);
+        }
+        else {
+            argsReduceOps.push_back(arg);
         }
     }
 

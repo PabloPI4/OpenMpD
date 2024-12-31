@@ -48,6 +48,7 @@ extern SymbolTable table;
 extern MPI_Writer mpi_writer;
 bool enCluster = false;
 bool enDistribute = true;
+bool enReduce = false;
 
 %}
 
@@ -92,6 +93,7 @@ corresponding C type is union name defaults to YYSTYPE.
 
 %type <stype> expression
 %type <stype> variable
+%type <stype> reduction_enum_identifier
 /* start point for the parsing */
 %start openmp_directive
 
@@ -114,8 +116,12 @@ variable   : EXPR_STRING {
         | expr_list ',' expression
         ;
 */
-var_list : variable
-        | var_list ',' variable
+var_list : variable { mpi_writer.addArg($1); }
+        | var_list ',' variable { mpi_writer.addArg($3); }
+        ;
+
+var_list_reduction : variable { if(enReduce){mpi_writer.MPI_Reduce(false, $1);} }
+        | var_list_reduction ',' variable { if(enReduce){mpi_writer.MPI_Reduce(false, $3);} }
         ;
 		
 var_chunk : variable ':' CHUNK '(' variable ')' {
@@ -468,7 +474,7 @@ cluster_distribute_directive : CLUSTER DISTRIBUTE
 } cluster_distribute_clause_optseq
 			     ;
 
-cluster_teams_distribute_directive : CLUSTER TEAMS DISTRIBUTE 
+cluster_teams_distribute_directive : CLUSTER TEAMS DISTRIBUTE
 {
  enCluster = true;
  enDistribute = true; 
@@ -2065,8 +2071,8 @@ parallel_clause_optseq : /* empty */
                        | parallel_clause_seq
                        ;
 					   
-cluster_clause_optseq : /* empty */
-		      | cluster_clause_seq
+cluster_clause_optseq : /*empty*/
+                      | cluster_clause_seq
 					  ;					 
 
 cluster_data_clause_optseq : cluster_data_clause_seq
@@ -2228,7 +2234,7 @@ parallel_clause_seq : parallel_clause
                     | parallel_clause_seq ',' parallel_clause
                     ;
 					
-cluster_clause_seq : cluster_clause	
+cluster_clause_seq : cluster_clause
 				   | cluster_clause_seq cluster_clause
 				   | cluster_clause_seq ',' cluster_clause
 				   ;		
@@ -2422,7 +2428,7 @@ cluster_clause : alloc_clause
 			   | gather_clause
 			   | allgather_clause
 			   | halo_clause
-			   | reduction_clause
+			   | { enReduce = true; logFile << "ENTRA EN REDUCE\n";} reduction_clause
 			   | allreduction_clause
 			   | map_clause
 			   ;
@@ -2492,7 +2498,8 @@ cluster_teams_distribute_clause : if_target_clause
                                 | reduction_default_only_clause
                                 | lastprivate_distribute_clause
                                 | collapse_clause
-                                | dist_schedule_clause                      
+                                | dist_schedule_clause
+                                | reduction_clause {enReduce = true;}
                                 ;
 					
 task_async_clause : DEPEND { } '(' dependance_type ':' var_list ')' 
@@ -3109,7 +3116,7 @@ private_clause : PRIVATE { } '(' var_list ')' { }
 
 alloc_clause : ALLOC { } '(' var_list ')' ;
 
-broad_clause : BROAD { } '(' var_list ')' ;
+broad_clause : BROAD { } '(' var_list ')' { mpi_writer.MPIBroad(); };
 
 scatter_clause : SCATTER { } '(' var_chunk_list ')' ;
 			   
@@ -3263,15 +3270,15 @@ schedule_enum_kind : STATIC { }
 shared_clause : SHARED { } '(' var_list ')'
               ;
 
-reduction_clause : REDUCTION { } '(' reduction_parameter ':' var_list ')' {
+reduction_clause : REDUCTION { } '(' reduction_parameter ':' var_list_reduction ')' {
                  }
                  ;
 
-reduction_parameter : reduction_identifier {}
+reduction_parameter : reduction_identifier
                     | reduction_modifier ',' reduction_identifier
                     ;
 
-reduction_identifier : reduction_enum_identifier {}
+reduction_identifier : reduction_enum_identifier { if(enReduce){mpi_writer.MPI_Reduce(true, $1);} }
                      | EXPR_STRING { }
                      ;
 
