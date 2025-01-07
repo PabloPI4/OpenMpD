@@ -52,8 +52,10 @@ gettimeofday(&t1, NULL);
 
 step = 1.0/(double) num_steps;
 
-
 }
+	MPI_Bcast(&num_steps, 1, MPI_STATIC_UNSIGNED_LONG_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&step, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
 int __iter;
 int __start;
 int __end;

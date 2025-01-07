@@ -208,8 +208,59 @@ private:
 
 
 public:
+    string aMayuscula(string cadena) {
+      for (string::size_type i = 0; i < cadena.length(); i++) cadena[i] = toupper(cadena[i]);
+      return cadena;
+    }
+
+    string aMinuscula(string cadena) {
+      for (string::size_type i = 0; i < cadena.length(); i++) cadena[i] = tolower(cadena[i]);
+      return cadena;
+    }
+
     void addArg(const char *arg){
         args.push_back(arg);
+    }
+
+    vector<string> extractValues(string str) {
+        vector<string> values;
+        bool variable = true;
+        bool abierto = false;
+
+        for (int i = 0; i < str.size(); i++) {
+            string val = "";
+
+            for (; i < str.size(); i++) {
+                if(str.at(i) == ']') {
+                    if (!abierto) {
+                        fprintf(stderr, "'[' expected before ']' in cluster alloc\n");  
+                        exit(80);
+                    }
+                    abierto = false;
+                    break;
+                }
+                else if(str.at(i) == '[') {
+                    abierto = true;
+                    if (variable) {
+                        break;
+                    }
+                }
+                else {
+                    val += str.at(i);
+                }
+            }
+
+            if (abierto && variable) {
+                variable = false;
+            }
+            else if (abierto) {
+                fprintf(stderr, "']' expected in cluster alloc\n");
+            }
+
+            values.push_back(val);
+        }
+
+        return values;
     }
 
     void MPIBroad(){
@@ -223,7 +274,69 @@ public:
     			broad += "\tMPI_Bcast(&" + string(arg) + ", 1, MPI_" + sim->getVariableType() + ", 0, MPI_COMM_WORLD);\n";
     		}
     	}
-    	generado << broad << endl;
+    	pre_pragmas << broad << endl;
+        args.clear();
+    }
+
+    void MPIAlloc() {
+        if(args.size() < 1){
+            errFile << "Error: Alloc pragma must have 1 argument and it has " << args.size() << endl;
+            exit(1);
+        }
+
+        string alloc = "";
+
+        for (int i = 0; i < args.size(); i++) {
+            const char *arg = args.at(i);
+            vector<string> values = extractValues(std::string(arg));
+            SymbolInfo *infoVar = table.getSymbolInfo(values.at(0));
+
+            alloc += "if (__taskid != 0) {\n";
+            alloc += ("\t" + values.at(0) + " = (" + aMinuscula(infoVar->getVariableType()) + " ");
+            for (int j = 1; j < values.size(); j++) {
+                alloc += "*";
+            }
+            alloc += (") malloc(" + values.at(1) + " * sizeof(" + aMinuscula(infoVar->getVariableType()) + " ");
+            for (int j = 2; j < values.size(); j++) {
+                alloc += "*";
+            }
+            alloc += "));\n";
+
+            for (int j = 2; j < values.size(); j++) {
+                string indentacion = "";
+                for (int k = 0; k < j; k++) {
+                    indentacion += "\t";
+                }
+
+                alloc += (indentacion + "for (int __alloc" + std::to_string(j-2) + " = 0; __alloc" + std::to_string(j-2) 
+                + " < " + values.at(j) + "; __alloc" + std::to_string(j-2) + "++) {\n");
+
+                alloc += "\t" + indentacion + values.at(0);
+
+                for (int k = 0; k < j - 1; k++) {
+                    alloc += "[__alloc" + std::to_string(k) + "]";
+                }
+
+                alloc += (" = (" + aMinuscula(infoVar->getVariableType()) + " ");
+                for (int k = j; k < values.size(); k++) {
+                    alloc += "*";
+                }
+                alloc += (") malloc(" + values.at(1) + " * sizeof(" + aMinuscula(infoVar->getVariableType()) + " ");
+                for (int k = j + 1; k < values.size(); k++) {
+                    alloc += "*";
+                }
+                alloc += ("));\n");
+
+                alloc += (indentacion + "}\n");
+            }
+
+            alloc += "}\n";
+
+            generado << alloc << endl;
+
+            alloc = "";
+        }
+
         args.clear();
     }
 

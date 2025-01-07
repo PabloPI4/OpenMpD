@@ -24,7 +24,10 @@ int main (int argc, char** argv) {
     struct timeval t1, t2;
     double segundos;
 
-    piHola();
+    #pragma omp cluster teams distribute
+    for (int i = 0; i < 10; i++) {
+	piHola();
+    }
 
     if (argc == 1) {
         printf("num_steps %ld, Â¿Factor de escala (1..4)?\n", num_steps);

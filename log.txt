@@ -2,6 +2,10 @@ Opened output file: output.c
 Opened generated file: generado.c
 avanzo la maquina de estados de 0 a 1
 avanzo la maquina de estados de 0 a 1
+Checking if num_steps exists in the current scope
+PASA POR LA COGISION DE VARIABLES PARA BROAD
+Checking if step exists in the current scope
+entro en pragmas y statePragma= 7
 ENCUENTRA REDUCTION
 Checking if sum exists in the current scope
 entro en pragmas y statePragma= 7
@@ -16,6 +20,6 @@ entro en pragmas y statePragma= 5
 0
 Written contents of 'generado' to 'output'.
 
-Total lines: 58
-Total errors: 0
+Total lines: 57
+Total errors: 2
 

@@ -116,8 +116,12 @@ variable   : EXPR_STRING {
         | expr_list ',' expression
         ;
 */
-var_list : variable { mpi_writer.addArg($1); }
-        | var_list ',' variable { mpi_writer.addArg($3); }
+var_list : variable
+        | var_list ',' variable
+        ;
+
+var_list_broad : variable { mpi_writer.addArg($1); logFile << "PASA POR LA COGISION DE VARIABLES PARA BROAD" << endl; }
+        | var_list_broad ',' variable { mpi_writer.addArg($3); }
         ;
 
 var_list_reduction : variable { if(enReduce){mpi_writer.MPI_Reduce(false, $1);} }
@@ -448,7 +452,7 @@ match_clause : MATCH { }
 parallel_directive : PARALLEL { } parallel_clause_optseq
                    ;
 				   
-cluster_directive : CLUSTER { enCluster = true; } cluster_clause_optseq  
+cluster_directive : CLUSTER { enCluster = true; statePragma = 7; } cluster_clause_optseq
 				  ;
 				  
 declare_cluster_directive : DECLARE CLUSTER { }
@@ -3116,7 +3120,7 @@ private_clause : PRIVATE { } '(' var_list ')' { }
 
 alloc_clause : ALLOC { } '(' var_list ')' ;
 
-broad_clause : BROAD { } '(' var_list ')' { mpi_writer.MPIBroad(); };
+broad_clause : BROAD { } '(' var_list_broad ')' { mpi_writer.MPIBroad(); };
 
 scatter_clause : SCATTER { } '(' var_chunk_list ')' ;
 			   
