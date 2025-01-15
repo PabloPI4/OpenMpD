@@ -2426,7 +2426,7 @@ parallel_clause : if_parallel_clause
                 | allocate_clause
                 ;
 				
-cluster_clause : alloc_clause
+cluster_clause : { statePragma = 7; } alloc_clause { mpi_writer.MPIAlloc(); }
 			   | broad_clause
 			   | scatter_clause
 			   | gather_clause
@@ -3118,7 +3118,7 @@ allocator_parameter : DEFAULT_MEM_ALLOC { }
 private_clause : PRIVATE { } '(' var_list ')' { }
                ;
 
-alloc_clause : ALLOC { } '(' var_list ')' ;
+alloc_clause : ALLOC { } '(' var_list_broad ')' ;
 
 broad_clause : BROAD { } '(' var_list_broad ')' { mpi_writer.MPIBroad(); };
 

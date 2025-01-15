@@ -8,6 +8,7 @@
 
 extern std::ofstream generado;
 extern ofstream logFile;
+extern std::ofstream errFile;
 extern int statePragma;
 extern int stateFuncion;
 extern bool saltaFor;
@@ -227,7 +228,7 @@ public:
         bool variable = true;
         bool abierto = false;
 
-        for (int i = 0; i < str.size(); i++) {
+        for (long unsigned int i = 0; i < str.size(); i++) {
             string val = "";
 
             for (; i < str.size(); i++) {
@@ -286,23 +287,23 @@ public:
 
         string alloc = "";
 
-        for (int i = 0; i < args.size(); i++) {
+        for (long unsigned int i = 0; i < args.size(); i++) {
             const char *arg = args.at(i);
             vector<string> values = extractValues(std::string(arg));
             SymbolInfo *infoVar = table.getSymbolInfo(values.at(0));
 
             alloc += "if (__taskid != 0) {\n";
             alloc += ("\t" + values.at(0) + " = (" + aMinuscula(infoVar->getVariableType()) + " ");
-            for (int j = 1; j < values.size(); j++) {
+            for (long unsigned int j = 1; j < values.size(); j++) {
                 alloc += "*";
             }
             alloc += (") malloc(" + values.at(1) + " * sizeof(" + aMinuscula(infoVar->getVariableType()) + " ");
-            for (int j = 2; j < values.size(); j++) {
+            for (long unsigned int j = 2; j < values.size(); j++) {
                 alloc += "*";
             }
             alloc += "));\n";
 
-            for (int j = 2; j < values.size(); j++) {
+            for (long unsigned int j = 2; j < values.size(); j++) {
                 string indentacion = "";
                 for (int k = 0; k < j; k++) {
                     indentacion += "\t";
@@ -318,21 +319,23 @@ public:
                 }
 
                 alloc += (" = (" + aMinuscula(infoVar->getVariableType()) + " ");
-                for (int k = j; k < values.size(); k++) {
+                for (long unsigned int k = j; k < values.size(); k++) {
                     alloc += "*";
                 }
-                alloc += (") malloc(" + values.at(1) + " * sizeof(" + aMinuscula(infoVar->getVariableType()) + " ");
-                for (int k = j + 1; k < values.size(); k++) {
+                alloc += (") malloc(" + values.at(j) + " * sizeof(" + aMinuscula(infoVar->getVariableType()) + " ");
+                for (long unsigned int k = j + 1; k < values.size(); k++) {
                     alloc += "*";
                 }
                 alloc += ("));\n");
+            }
 
-                alloc += (indentacion + "}\n");
+            for (long unsigned int j = 2; j < values.size(); j++) {
+                alloc += "\t}\n";
             }
 
             alloc += "}\n";
 
-            generado << alloc << endl;
+            pre_pragmas  << alloc << endl;
 
             alloc = "";
         }
@@ -347,7 +350,7 @@ public:
             return finalReduce;
         }
 
-        for (int i = 0; i < argsReduceOps.size(); i++) {
+        for (long unsigned int i = 0; i < argsReduceOps.size(); i++) {
             string opMPI;
             if (strcmp(argsReduceOps.at(i), "+") == 0) {
                 opMPI = "MPI_SUM";
@@ -380,7 +383,7 @@ public:
             toUpper += infoVar->getVariableType();
             toLower += infoVar->getVariableType();
 
-            for (int j = 0; j < infoVar->getVariableType().size(); j++) {
+            for (long unsigned int j = 0; j < infoVar->getVariableType().size(); j++) {
                 toUpper.at(j) = toupper(infoVar->getVariableType().at(j));
                 toLower.at(j) = tolower(infoVar->getVariableType().at(j));
             }
