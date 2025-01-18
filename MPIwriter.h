@@ -207,6 +207,18 @@ private:
     std::vector<const char *> argsReduceOps;
     std::vector<const char *> argsReduceVars;
 
+    int matrizTipos[11][11] = {{-1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1},
+                    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 2},
+                    {-1, -1, -1, -1, -1, -1, -1, -1, 0, -1, -1},
+                    {-1, -1, -1, -1, -1, -1, 1, -1, 0, -1, -1},
+                    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -2},
+                    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1},
+                    {-1, 0, -1, 0, -1, -1, 1, -1, -1, -1, 1},
+                    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
+                    {-1, -1, 1, 1, -1, -1, -1, -1, -1, -1, -1},
+                    {0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
+                    {0, -2, -1, -1, -1, 0, 0, -1, -1, -1, -1}};
+
 
 public:
     string aMayuscula(string cadena) {
@@ -221,6 +233,138 @@ public:
 
     void addArg(const char *arg){
         args.push_back(arg);
+    }
+
+    //HACER
+    string translateTypes(string type) {
+        cout << type << endl;
+        string typeRes = "MPI";
+        vector<string> parts;
+
+        for (int i = 0; i < type.size(); i++) {
+            string x = "";
+
+            for (; i < type.size(); i++) {
+                if (type.at(i) == '_') {
+                    break;
+                }
+                else {
+                    x += type.at(i);
+                }
+            }
+
+            if (x != "") {
+                int fila = -1;
+                string y = aMayuscula(x);
+                if (y == "CHAR") {
+                    fila = 0;
+                }
+                else if (y == "INT") {
+                    fila = 1;
+                }
+                else if (y == "FLOAT") {
+                    fila = 2;
+                }
+                else if (y == "DOUBLE") {
+                    fila = 3;
+                }
+                else if (y == "BOOL") {
+                    fila = 4;
+                }
+                else if (y == "SHORT") {
+                    fila = 5;
+                }
+                else if (y == "LONG") {
+                    fila = 6;
+                }
+                else if (y == "BYTE") {
+                    fila = 7;
+                }
+                else if (y == "COMPLEX") {
+                    fila = 8;
+                }
+                else if (y == "SIGNED") {
+                    fila = 9;
+                }
+                else if (y == "UNSIGNED") {
+                    fila = 10;
+                }
+                else {
+                    continue;
+                }
+
+                if (parts.size() == 0 && fila >= 0) {
+                    parts.insert(parts.begin(), x);
+                    continue;
+                }
+
+                for (int j = 0; j < parts.size(); j++) {
+                    int col;
+
+                    if (parts.at(j) == "CHAR") {
+                        col = 0;
+                    }
+                    else if (parts.at(j) == "INT") {
+                        col = 1;
+                    }
+                    else if (parts.at(j) == "FLOAT") {
+                        col = 2;
+                    }
+                    else if (parts.at(j) == "DOUBLE") {
+                        col = 3;
+                    }
+                    else if (parts.at(j) == "BOOL") {
+                        col = 4;
+                    }
+                    else if (parts.at(j) == "SHORT") {
+                        col = 5;
+                    }
+                    else if (parts.at(j) == "LONG") {
+                        col = 6;
+                    }
+                    else if (parts.at(j) == "BYTE") {
+                        col = 7;
+                    }
+                    else if (parts.at(j) == "COMPLEX") {
+                        col = 8;
+                    }
+                    else if (parts.at(j) == "SIGNED") {
+                        col = 9;
+                    }
+                    else if (parts.at(j) == "UNSIGNED") {
+                        col = 10;
+                    }
+
+                    int elem = matrizTipos[fila][col];
+
+                    switch (elem) {
+                        case -2: parts.insert(parts.begin() + j, y);
+                                parts.erase(parts.begin() + j + 1);
+                                break;
+                        case 0: parts.insert(parts.begin() + j, y);
+                                break;
+                        case 1: parts.insert(parts.begin() + j + 1, y);
+                                break;
+                    }
+
+                    if (elem != -1) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        for (int i = 0; i < parts.size(); i++) {
+            typeRes += ("_" + parts.at(i));
+            fprintf(stderr, "MPI TIPO EN BCAST: %s\n", parts.at(i));
+        }
+
+        if (typeRes == "MPI") {
+            fprintf(stderr, "tipo de MPI no permitido\n");
+            exit(50);
+        }
+
+        return typeRes;
     }
 
     vector<string> extractValues(string str) {
@@ -269,10 +413,10 @@ public:
         for(const auto& arg : args){
     		SymbolInfo *sim = table.getSymbolInfo(arg);
     		if(sim->isArray()){
-    			broad += "\tMPI_Bcast(" + string(arg) + ", " + sim->getSizeList() + ", MPI_" + sim->getVariableType()  + ", 0, MPI_COMM_WORLD);\n";
+    			broad += "\tMPI_Bcast(" + string(arg) + ", " + sim->getSizeList() + ", " + translateTypes(sim->getVariableType())  + ", 0, MPI_COMM_WORLD);\n";
     		}
     		else{
-    			broad += "\tMPI_Bcast(&" + string(arg) + ", 1, MPI_" + sim->getVariableType() + ", 0, MPI_COMM_WORLD);\n";
+    			broad += "\tMPI_Bcast(&" + string(arg) + ", 1, " + translateTypes(sim->getVariableType()) + ", 0, MPI_COMM_WORLD);\n";
     		}
     	}
     	pre_pragmas << broad << endl;
@@ -390,13 +534,77 @@ public:
 
             finalReduce += (toLower + " __" + argsReduceVars.at(i) + ";\n");
             
-            finalReduce = finalReduce + "MPI_Reduce(&__" + argsReduceVars.at(i) + ", &" + argsReduceVars.at(i) + ", 1, MPI_" + toUpper +
+            finalReduce = finalReduce + "MPI_Reduce(&" + argsReduceVars.at(i) + ", &__" + argsReduceVars.at(i) + ", 1, " + translateTypes(toUpper) +
              ", " + opMPI + ", 0, MPI_COMM_WORLD);\n";
 
             finalReduce = finalReduce + "if (__taskid == 0) { " + argsReduceVars.at(i) + " = __" + argsReduceVars.at(i) + "; }\n";
         }
 
         return finalReduce;
+    }
+
+    void MPIScatterChunk() {
+        if (args.size() % 2 != 0) {
+            fprintf(stderr, "insuficientes argumentos en scatter\n");
+            exit(60);
+        }
+    
+        for (int i = 0; i < args.size(); i+=2) {
+            vector<string> values = extractValues(args.at(i));
+            string chunk = (std::string(args.at(i + 1)));
+            if (chunk.find("[") != -1) {
+                fprintf(stderr, "chunk de scatter incorrecto\n");
+            }
+            values.push_back(chunk);
+            SymbolInfo * infoVar = table.getSymbolInfo(values.at(0));
+    
+            string scatter =
+                "int __chunk" + infoVar->getSymbolName() + ";\n" +
+                aMinuscula(infoVar->getVariableType()) + "** __" + infoVar->getSymbolName() + ";\n" +
+                "int *displs" + infoVar->getSymbolName() + " = (int *) malloc(__numprocs * sizeof(int));\n" +
+                "int *counts" + infoVar->getSymbolName() + " = (int *) malloc(__numprocs * sizeof(int));\n" +
+                "int offset" + infoVar->getSymbolName() + ";\n" +
+    
+                "if (" + values.at(1) + " % __numprocs == 0) {\n" +
+                "\t__chunk" + infoVar->getSymbolName() + " = " + values.at(1) + "/__numprocs;\n" +
+                "}\n" +
+                "else {\n" +
+                "\t__chunk" + infoVar->getSymbolName() + " = " + values.at(1) + "/__numprocs + 1;\n" +
+                "}\n" +
+    
+                "if(__taskid == 0) {\n" +
+                "\toffset" + infoVar->getSymbolName() + " = 0;\n" +
+                "\tfor (int __scatter0 = 0; __scatter0 < __numprocs - 1; __scatter0++) {\n" +
+                "\t\tcounts" + infoVar->getSymbolName() + "[__scatter0] = __chunk" + infoVar->getSymbolName() + " * " + values.at(2) + ";\n" +
+                "\t\tdispls" + infoVar->getSymbolName() + "[__scatter0] = offset" + infoVar->getSymbolName() + ";\n" +
+                "\t\toffset" + infoVar->getSymbolName() + " += __chunk" + infoVar->getSymbolName() + " * " + values.at(2) + ";\n" +
+                "\t}\n" +
+                "\tcounts" + infoVar->getSymbolName() + "[__numprocs - 1] = (" + values.at(1) + " - (" + "__chunk" + infoVar->getSymbolName() + " * " + "(__numprocs - 1))) * " + values.at(2) + ";\n" +
+                "}\n" +
+                "else if(__taskid == __numprocs - 1) {\n"
+                "\tcounts" + infoVar->getSymbolName() + "[__taskid] = (" + values.at(1) + " - (" + "__chunk" + infoVar->getSymbolName() + " * " + "(__numprocs - 1))) * " + values.at(2) + ";\n" +
+                "}\n" +
+                "else {\n" +
+                "\tcounts" + infoVar->getSymbolName() + "[__taskid] = __chunk" + infoVar->getSymbolName() + " * " + values.at(2) + ";\n" +
+                "}\n" +
+    
+                "__" + infoVar->getSymbolName() + " = (" + aMinuscula(infoVar->getVariableType()) + " **) malloc(" + values.at(1) + " * sizeof(" + aMinuscula(infoVar->getVariableType()) + " *));\n" +
+                "for (int __scatter1 = 0; __scatter1 < " + values.at(1) + "; __scatter1++) {\n" +
+                "\t__" + infoVar->getSymbolName() + "[__scatter1] = (" + aMinuscula(infoVar->getVariableType()) + " *) malloc(" + values.at(2) + " * sizeof(" + aMinuscula(infoVar->getVariableType()) + "));\n" +
+                "}\n" +
+    
+                aMinuscula(infoVar->getVariableType()) + " *" + infoVar->getSymbolName() + "aux = &" + infoVar->getSymbolName() + "[0][0];\n" +
+                aMinuscula(infoVar->getVariableType()) + " *__" + infoVar->getSymbolName() + "aux = &__" + infoVar->getSymbolName() + "[0][0];\n" +
+    
+    
+                "MPI_Scatterv(" + infoVar->getSymbolName() + "aux, counts" + infoVar->getSymbolName() + ", displs" + infoVar->getSymbolName() + ", MPI_" + infoVar->getVariableType() + ", __" + 
+                infoVar->getSymbolName() + "aux + (__chunk" + infoVar->getSymbolName() + "*" + values.at(2) + "*__taskid), counts" + infoVar->getSymbolName() + "[__taskid], " + "MPI_" +
+                infoVar->getVariableType() + ", 0, MPI_COMM_WORLD);\n";
+            
+            pre_pragmas << scatter << endl;
+        }
+
+        args.clear();
     }
 
     void write_MPI_Includes(){

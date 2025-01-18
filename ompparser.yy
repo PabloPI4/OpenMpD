@@ -128,10 +128,7 @@ var_list_reduction : variable { if(enReduce){mpi_writer.MPI_Reduce(false, $1);} 
         | var_list_reduction ',' variable { if(enReduce){mpi_writer.MPI_Reduce(false, $3);} }
         ;
 		
-var_chunk : variable ':' CHUNK '(' variable ')' {
-  
-}
-
+var_chunk : variable ':' CHUNK '(' variable ')' { mpi_writer.addArg($1); mpi_writer.addArg($5); }
 		  ;
 		  
 var_chunk_list : var_chunk
@@ -2428,7 +2425,7 @@ parallel_clause : if_parallel_clause
 				
 cluster_clause : { statePragma = 7; } alloc_clause { mpi_writer.MPIAlloc(); }
 			   | broad_clause
-			   | scatter_clause
+			   | { statePragma = 7; } scatter_clause { mpi_writer.MPIScatterChunk(); }
 			   | gather_clause
 			   | allgather_clause
 			   | halo_clause
@@ -2504,6 +2501,7 @@ cluster_teams_distribute_clause : if_target_clause
                                 | collapse_clause
                                 | dist_schedule_clause
                                 | reduction_clause {enReduce = true;}
+                                | scatter_clause
                                 ;
 					
 task_async_clause : DEPEND { } '(' dependance_type ':' var_list ')' 

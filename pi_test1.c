@@ -5,7 +5,7 @@
 
 #define NUM_THREADS 8
 
-    static unsigned long int num_steps = (unsigned long int)((1<<30)-1) ;
+    int unsigned long static num_steps = (unsigned long int)((1<<30)-1) ;
     double step;
 
 void piHola() {
@@ -43,11 +43,12 @@ step = 1.0/(double) num_steps;
 #pragma omp cluster alloc(valores[3][8])
 #pragma omp cluster broad(num_steps, step)
 #pragma omp cluster teams distribute reduction(+:sum)
-#pragma omp parallel for simd private(x) reduction(+:sum)
+#pragma omp parallel for simd private(x)
 for (i=0;i< num_steps; i++) {
     x = (i+0.5)*step;
     sum += 4.0/(1.0+x*x);
 }
+
 pi = step * sum;
 
 gettimeofday(&t2, NULL);
