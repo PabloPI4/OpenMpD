@@ -241,7 +241,7 @@ public:
         string typeRes = "MPI";
         vector<string> parts;
 
-        for (int i = 0; i < type.size(); i++) {
+        for (long unsigned int i = 0; i < type.size(); i++) {
             string x = "";
 
             for (; i < type.size(); i++) {
@@ -298,7 +298,7 @@ public:
                     continue;
                 }
 
-                for (int j = 0; j < parts.size(); j++) {
+                for (long unsigned int j = 0; j < parts.size(); j++) {
                     int col;
 
                     if (parts.at(j) == "CHAR") {
@@ -354,9 +354,9 @@ public:
             }
         }
 
-        for (int i = 0; i < parts.size(); i++) {
+        for (long unsigned int i = 0; i < parts.size(); i++) {
             typeRes += ("_" + parts.at(i));
-            fprintf(stderr, "MPI TIPO EN BCAST: %s\n", parts.at(i));
+            fprintf(stderr, "MPI TIPO EN BCAST: %s\n", parts.at(i).data());
         }
 
         if (typeRes == "MPI") {
@@ -449,7 +449,7 @@ public:
 
             for (long unsigned int j = 2; j < values.size(); j++) {
                 string indentacion = "";
-                for (int k = 0; k < j; k++) {
+                for (long unsigned int k = 0; k < j; k++) {
                     indentacion += "\t";
                 }
 
@@ -458,7 +458,7 @@ public:
 
                 alloc += "\t" + indentacion + values.at(0);
 
-                for (int k = 0; k < j - 1; k++) {
+                for (long unsigned int k = 0; k < j - 1; k++) {
                     alloc += "[__alloc" + std::to_string(k) + "]";
                 }
 
@@ -549,17 +549,17 @@ public:
             exit(60);
         }
     
-        for (int i = 0; i < args.size(); i+=2) {
+        for (long unsigned int i = 0; i < args.size(); i+=2) {
             vector<string> values = extractValues(args.at(i));
             string chunk = (std::string(args.at(i + 1)));
-            if (chunk.find("[") != -1) {
+            if (chunk.find("[") != (long unsigned int)(-1)) {
                 fprintf(stderr, "chunk de scatter incorrecto\n");
             }
             values.push_back(chunk);
             SymbolInfo * infoVar = table.getSymbolInfo(values.at(0));
     
             string scatter =
-                "int __chunk" + infoVar->getSymbolName() + ";\n" +
+                "{\nint __chunk" + infoVar->getSymbolName() + ";\n" +
                 aMinuscula(infoVar->getVariableType()) + "** __" + infoVar->getSymbolName() + ";\n" +
                 "int *displs" + infoVar->getSymbolName() + " = (int *) malloc(__numprocs * sizeof(int));\n" +
                 "int *counts" + infoVar->getSymbolName() + " = (int *) malloc(__numprocs * sizeof(int));\n" +
@@ -599,7 +599,7 @@ public:
     
                 "MPI_Scatterv(" + infoVar->getSymbolName() + "aux, counts" + infoVar->getSymbolName() + ", displs" + infoVar->getSymbolName() + ", MPI_" + infoVar->getVariableType() + ", __" + 
                 infoVar->getSymbolName() + "aux + (__chunk" + infoVar->getSymbolName() + "*" + values.at(2) + "*__taskid), counts" + infoVar->getSymbolName() + "[__taskid], " + "MPI_" +
-                infoVar->getVariableType() + ", 0, MPI_COMM_WORLD);\n";
+                infoVar->getVariableType() + ", 0, MPI_COMM_WORLD);\n}\n";
             
             pre_pragmas << scatter << endl;
         }

@@ -1,0 +1,3 @@
+Error valores[3][8]doesnt exist in the current scope
+Error num_stepsdoesnt exist in the current scope
+Error stepdoesnt exist in the current scope

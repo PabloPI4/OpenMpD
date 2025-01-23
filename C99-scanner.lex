@@ -207,7 +207,7 @@ char * get_pragma(void)
 
         ECHO;
 
-        while ((c = yyinput()) != 0 && (c != '\n'))   /* (EOF maps to 0) */
+        while ((c = yyinput()) != 0 && (c != '\n' && c != '\r'))   /* (EOF maps to 0) */
         {
                 if (yyout != NULL)
                         fputc(c, yyout);
