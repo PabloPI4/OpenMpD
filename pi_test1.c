@@ -19,7 +19,6 @@ int main (int argc, char** argv) {
     double x;
     double sum=0.0;
     int factor=1;
-    int **valores;
 
     struct timeval t1, t2;
     double segundos;
@@ -40,19 +39,21 @@ gettimeofday(&t1, NULL);
 
 step = 1.0/(double) num_steps;
 
-#pragma omp cluster alloc(valores[3][8])
 #pragma omp cluster broad(num_steps, step)
+{
 #pragma omp cluster teams distribute reduction(+:sum)
-#pragma omp parallel for simd private(x) reduction(+:sum)
+#pragma omp parallel for simd private(x)
 for (i=0;i< num_steps; i++) {
     x = (i+0.5)*step;
     sum += 4.0/(1.0+x*x);
 }
 
 pi = step * sum;
+}
 
 gettimeofday(&t2, NULL);
 segundos = (((t2.tv_usec - t1.tv_usec)/1000000.0f)  + (t2.tv_sec - t1.tv_sec));
+
 
 printf("Pi %25.23f, calc con %ld pasos en %f segundos\n", pi,num_steps,segundos);
 printf("Pi es %25.23f, Error relativo %10.8e\n", PI25DT, (double)100 * (pi - PI25DT)/PI25DT);

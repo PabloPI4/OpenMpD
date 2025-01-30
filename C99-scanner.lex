@@ -9,32 +9,43 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 %{
 #include<bits/stdc++.h>
 #include "SymbolTable.h"
+#include "writer.h"
 #include <stdio.h>
 #include <cstring>
 #include <fstream>
 #include "y.tab.hh"
-#include "MPIwriter.h"
 
+extern ofstream output;
 extern void parseOpenMP(const char* _input, void * _exprParse(const char*));
 extern void yyerror(const char *);
-extern ofstream generado;
+extern void MPIEmpezarSecuencial();
+extern string construirReductionDist();
+
 static void count(void);
 static void comment(void);
 static char * get_pragma();
+// static int check_type(void);
 
 extern ofstream logFile;
 extern ofstream errFile;
-extern int stateGlobal, stateFuncion;
 extern SymbolTable table;
-extern MPI_Writer mpi_writer;
 
 int column = 0;
 int line_count = 1;
+
+extern int n_llaves;
+extern int enCluster;
+extern string guardarLineasDist;
+extern int dist_n_llaves;
+extern int enFor;
+extern string DeclareTypes;
+extern int MPIInitDone;
 
 using namespace std;
 
 extern YYSTYPE yylval;
 
+extern int error_count;
 
 %}
 
@@ -42,30 +53,35 @@ extern YYSTYPE yylval;
 
 %%
 "#"           {
-                char * texto = get_pragma();
-                char * pragma = strstr(texto, "pragma");
-				char * include = strstr(texto, "include");
-
+                char * line = get_pragma();
+                char * pragma = strstr(line, "pragma");
                 if (pragma != NULL) {
-
-					if(stateGlobal > 1) {stateFuncion = 2; } //estado de escribir pragma
                     parseOpenMP(pragma+7, NULL);
-					mpi_writer.analyze_Pragma(texto);
-                }
+
+					if (strstr(line, "cluster") == NULL) {
+						if (enDistribute && enFor == 0) {
+							guardarLineasDist += '#';
+							guardarLineasDist += line;
+
+							if (enReductionDistribute && strstr(line, "reduction") == NULL && (strstr(line, "for") != NULL || strstr(line, "simd") != NULL)) {
+								guardarLineasDist += construirReductionDist();
+							}
+
+							guardarLineasDist += '\n';
+						}
+						else {
+							output << "	#" << line;
+
+							if (enReductionDistribute && strstr(line, "reduction") == NULL && (strstr(line, "for") != NULL || strstr(line, "simd") != NULL)) {
+								output << construirReductionDist();
+							}
+
+							output << endl;
+						}
+					}
+				}
 				else{
-					std::ostringstream buffer;
-					buffer << "#" << texto << endl;
-					if ( stateGlobal > 1 && stateFuncion == 2){
-						stateFuncion = 3;
-					}
-					if(include != NULL){
-						mpi_writer.write_MPI_File(buffer.str(), 0, 0);
-					}
-					else{
-						mpi_writer.write_MPI_File(buffer.str(), stateGlobal, stateFuncion);
-					}
-					line_count++;
-					column = 0;
+					output << "#" << line << endl;
 				}
               }
 "/*"			{ comment(); }
@@ -112,10 +128,21 @@ extern YYSTYPE yylval;
 
 {L}({L}|{D})*		{
 	count();
-	SymbolInfo *s = new SymbolInfo(yytext, (char *)"IDENTIFIER");
-	yylval.sym = s;
-
-	return IDENTIFIER;
+	SymbolInfo *s = table.getSymbolInfo(yytext);
+	if(s != NULL && s->getSymIsType()){
+		yylval.sym = new SymbolInfo(yytext, (char *) yytext);
+		return USER_DEFINED;
+	}
+	else{
+		SymbolInfo *s = new SymbolInfo(yytext, (char *)"IDENTIFIER");
+		yylval.sym = s;
+		return IDENTIFIER;
+		// if (strlen(yytext) > 31){
+		// 	logFile << "Error at line no  " << line_count << ": " << "Length of ID exeeded 31 characters " <<  yytext << endl << endl;
+		// 	errFile << "Error at line no  " << line_count << ": " << "Length of ID exeeded 31 characters " <<  yytext << endl << endl;
+		// 	error_count++;
+		// }
+	}
 }
 
 0[xX]{H}+{IS}?		{ count(); return(CONSTANT); }
@@ -161,8 +188,10 @@ L?\"(\\.|[^\\"\n])*\"	{ count(); return(STRING_LITERAL); }
 "=="			{ count(); return(EQ_OP); }
 "!="			{ count(); return(NE_OP); }
 ";"			{ count(); return(';'); }
-("{"|"<%")		{ count(); return('{'); }
-("}"|"%>")		{ count(); return('}'); }
+("{"|"<%")		{ count(); if (enCluster) {if (n_llaves == -100) {n_llaves = 0;} n_llaves++;} if (enDistribute) {dist_n_llaves++;} return('{'); }
+("}"|"%>")		{ count(); if (enCluster) {n_llaves--; if (n_llaves < 0) {exit(200);} else if(n_llaves == 0) {n_llaves = -100;}}
+					if (enDistribute) {dist_n_llaves--; if (dist_n_llaves < 0) {exit(201);} else if (dist_n_llaves == 0) {dist_n_llaves = -100;}} 
+					return('}'); }
 ","			{ count(); return(','); }
 ":"			{ count(); return(':'); }
 "="			{ count(); return('='); }
@@ -192,9 +221,8 @@ L?\"(\\.|[^\\"\n])*\"	{ count(); return(STRING_LITERAL); }
 
 int yywrap(void)
 {
-	table.exitScope();
-	mpi_writer.mpi_write_linea(stateFuncion, stateGlobal);
-    mpi_writer.generarMPI();
+	if (MPIInitDone)
+		output << endl << DeclareTypes << "}";
 	return 1;
 }
 
@@ -202,7 +230,7 @@ int yywrap(void)
 char * get_pragma(void)
 {
         char c;
-        char * line = (char *) malloc(256);
+        char * line = (char *) malloc(512);
         int i=0;
 
         ECHO;
@@ -239,8 +267,10 @@ void comment(void)
 void count(void)
 {
 	int i;
-
-	for (i = 0; yytext[i] != '\0'; i++)
+	setYytext(yytext);
+	updateText();
+	
+	for (i = 0; yytext[i] != '\0'; i++) {
 		if (yytext[i] == '\n'){
 			line_count++;
 			column = 0;
@@ -249,8 +279,26 @@ void count(void)
 			column += 8 - (column % 8);
 		else
 			column++;
-	mpi_writer.mpi_write_caracter(yytext,stateGlobal,stateFuncion);
+	}
 
-
-	ECHO;
+	//ECHO;
 }
+
+
+/* int check_type(void)
+{ */
+/*
+* pseudo code --- this is what it should check
+*
+*	if (yytext == type_name)
+*		return TYPE_NAME;
+*
+*	return IDENTIFIER;
+*/
+
+/*
+*	it actually will only return IDENTIFIER
+*/
+
+	/* return IDENTIFIER;
+} */

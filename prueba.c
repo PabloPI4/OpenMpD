@@ -1,10 +1,10 @@
 #include <omp.h>
-#include <stdio.h>
 
-int main(int argc, char **argv) {
-    int xx = 2;
+int main() {
+    int **a = (int **) malloc(10 *sizeof(int *));
+    for (int i = 0; i < 10; i++) {
+	a[i] = (int *) malloc(2 * sizeof(int));
+    }
 
-    #pragma omp cluster broad(xx)
-
-    fprintf(stderr, "valor xx = %d\n", xx);
+    #pragma omp cluster scatter(a[10][2]:chunk(2))
 }

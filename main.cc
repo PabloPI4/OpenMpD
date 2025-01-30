@@ -2,89 +2,73 @@
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
-#include <fstream>
 #include "SymbolTable.h"
-#include "MPIwriter.h"
 
 extern int yydebug;
 extern FILE *yyin, *yyout;
 FILE *inputFile;
 
-char *linea;
-
+extern char *linea;
 extern int MVL_LINNUM;
 
 extern void yyerror(const char *s);
-extern int yyparse();
+extern int yyparse ();
+extern void lastLine();
 
 std::ofstream logFile, errFile, sym_tables, output;
 
 extern int error_count, line_count;
 
 extern SymbolTable table;
-extern MPI_Writer mpi_writer;
 
-int main(int argc, const char* argv[]) {
-    /* missing parameter check */
-    
-    /* yydebug=1; */
+int main( int argc, const char* argv[] )
+{
+  /* missing parameter check */
 
-    /* open files */
-    if ((argc != 4) && (argc != 5)) {
-        std::cout << "command: ./fparse input.c log.txt error.txt [output.c]" << std::endl;
-        return 0;
-    }
+  /* yydebug=1; */
 
-    if ((inputFile = fopen(argv[1], "r")) == NULL) {
-        printf("Cannot Open Input File.\n");
-        exit(1);
-    }
 
-    logFile.open(argv[2]);
-    errFile.open(argv[3]);
+  /* open files */
+  if ((argc!=4) && (argc!=5)) {
+      std::cout << "command: ./fparse input.c log.txt error.txt [output.c]" << std::endl;
+      return 0;
+  }
 
-    if (argc == 5) {
-        output.open(argv[4], std::ios::app);
-        logFile << "Opened output file: " << argv[4] << std::endl;
-    } else {
-        logFile << "No output file provided." << std::endl;
-    }
+  if((inputFile=fopen(argv[1],"r"))==NULL) {
+      printf("Cannot Open Input File.\n");
+      exit(1);
+  }
 
-    sym_tables.open("sym_tables.txt");
-    generado.open("generado.c");  // Abre el archivo generado
-    logFile << "Opened generated file: generado.c" << std::endl;
+  logFile.open(argv[2]);
+  errFile.open(argv[3]);
 
-    yyin = inputFile;
+  if (argc==5){
+    output.open(argv[4]);
+  }
 
-    // yydebug = 1;  // Enable Bison's debug mode
+  sym_tables.open("sym_tables.txt");
 
-    yyparse();
-    
-    // Output the contents of 'generado' to 'output'
-    if (output.is_open()) {
-        output << generado.rdbuf() << std::endl;
-        logFile << "Written contents of 'generado' to 'output'." << std::endl;
-    } else {
-        logFile << "Output file is not open." << std::endl;
-    }
+  yyin=inputFile;
 
-    table.exitScope();
+  //yydebug = 1;  // Enable Bison's debug mode
 
-    logFile << std::endl;
-    logFile << "Total lines: " << line_count << std::endl;
-    logFile << "Total errors: " << error_count << std::endl << std::endl;
+  yyparse();
 
-    table.printCurrScopeTable(); // Print the current scope table
+  lastLine();
+  table.exitScope();
 
-    // Close all the files
-    logFile.close();
-    sym_tables.close();
-    errFile.close();
-    if (output.is_open()) {
-        output.close();
-    }
-    fclose(yyin);
-    generado.close();
+  logFile << endl;
+  logFile << "Total lines: " << line_count << endl;
+  logFile << "Total errors: " << error_count << endl << endl;
 
-    return 0;
+  table.printCurrScopeTable();
+
+  logFile.close();
+  output.close();
+  sym_tables.close();
+  errFile.close();
+  fclose(yyin);
+
+  return 0;
+
 }

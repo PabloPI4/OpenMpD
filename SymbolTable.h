@@ -1,10 +1,11 @@
 #ifndef SYMBOLTABLE_SYMBOLTABLE_H
 #define SYMBOLTABLE_SYMBOLTABLE_H
+
 #include<bits/stdc++.h>
+
 using namespace std;
 
 extern ofstream logFile, sym_tables;
-extern int yydebug, error_count;
 
 class SymbolInfo {
 private:
@@ -17,11 +18,11 @@ private:
     string varType = "";
     vector <SymbolInfo*>* paramList = nullptr;
     bool isFunc = false;
-    bool isType = false;
     bool isDef = false;
     bool isArr = false;
     bool isPoint = false;
     bool isStrct = false;
+	bool isType = false;
     vector<string> arrSize;
     
     
@@ -41,6 +42,7 @@ public:
         nextSymbol = s1.nextSymbol; 
         hashIdx = s1.hashIdx;
         hashPos = s1.hashPos;
+		isType = s1.isType;
         returnType = s1.returnType;  
         varType = s1.varType;
 
@@ -52,7 +54,6 @@ public:
 
         isFunc = s1.isFunc;
         isDef = s1.isDef;
-        isType = s1.isType;
         isArr = s1.isArr;
         isPoint = s1.isPoint;
         isStrct = s1.isStrct;
@@ -74,7 +75,7 @@ public:
         return varType;
     }
 
-    void setSymIsType(bool set){
+	void setSymIsType(bool set){
         isType = set;
     }
 
@@ -104,7 +105,7 @@ public:
     }
 
     string getSizeList(){
-        string sizeListStr = " Array Size: ";
+        string sizeListStr = "";
         for(std::vector<string>::size_type i = 0; i < arrSize.size(); i++){
             sizeListStr += (arrSize.at(i));
             if(i < arrSize.size() - 1){
@@ -183,6 +184,7 @@ public:
         this->hashIdx = hashIdx;
     }
 
+
     void setHashPos(int hashPos) {
         this->hashPos = hashPos;
     }
@@ -203,13 +205,10 @@ class ScopeTable {
 private:
     string scopeID;
     int childCount;
-    bool hasSchedule;
 
     long long total_buckets;
     SymbolInfo **chainHashTable;
     ScopeTable *parentScope;
-
-    bool IsScopeReturn = false;
 
 public:
     ScopeTable(int n, ScopeTable *parentScope) {
@@ -260,13 +259,6 @@ public:
 
     const string getScopeId() {
         return scopeID;
-    }
-
-    bool getHasSchedule(){
-        return hasSchedule;
-    }
-    void setHasSchedule (bool schedule){
-        hasSchedule = schedule;
     }
 
     void insert(SymbolInfo *symbol) {
@@ -350,15 +342,12 @@ public:
     void printCurr() {
         bool enteredScope = false;
         bool printEnter = false;
-        
+
         for (int i = 0; i < total_buckets; i++) {
             SymbolInfo *currSymbol = chainHashTable[i];
             if(enteredScope == false){
-                // cout << "ScopeTable# " << scopeID << endl;
-             
                 sym_tables << "ScopeTable # " << scopeID << endl;
                 enteredScope = true;
-
             }
             if(currSymbol != NULL){
                 // cout << i << " --> ";
@@ -370,10 +359,10 @@ public:
                 // cout << "< " << currSymbol->getSymbolName() << " : " << currSymbol->getSymbolType() << " > ";
                 sym_tables << "| ";
                 if(currSymbol->isStruct()){
-                    sym_tables << "< " << currSymbol->getSymbolName() << " , " << "Struct Symbol" << " , " << currSymbol->getVariableType() <<  " , " << currSymbol->getParamListString() << " >";
+                    sym_tables << "< " << currSymbol->getSymbolName() << " , " << "Struct Symbol" << " , " << currSymbol->getVariableType() << " , " << currSymbol->getParamListString() << " >";
                 }
                 else if(currSymbol->isArray()){
-                    sym_tables << "< " << currSymbol->getSymbolName() << " , " << "Array Symbol" << " , " << currSymbol->getVariableType() <<  " < " << currSymbol->getSizeList() << " > " << " >";
+                    sym_tables << "< " << currSymbol->getSymbolName() << " , " << "Array Symbol" << " , " << currSymbol->getVariableType() << " < Array Size: " << currSymbol->getSizeList() << " > " << " >";
                 }
                 else if(currSymbol->isFunction()){
                     sym_tables << "< " << currSymbol->getSymbolName() << " , " << "Function Symbol" << " , " << currSymbol->getVariableType() << " , " << "Parameter List: " << currSymbol->getParamListString() << " >";
@@ -416,14 +405,6 @@ public:
         return NULL;
     }
 
-    void setIsScopeReturn(bool set){
-        IsScopeReturn = set;
-    }
-
-    bool getIsScopeReturn(){
-        return IsScopeReturn;
-    }
-
 
     // ~ScopeTable() {
     // cout << "Destroying the current ScopeTable" << endl;
@@ -462,9 +443,7 @@ public:
     }
     delete[] chainHashTable; // Deletes the array of pointers
     chainHashTable = nullptr; // Prevents dangling pointer
-    if(yydebug){
-        logFile << "ScopeTable " << scopeID << " fully destructed." << std::endl;
-    }
+    logFile << "ScopeTable " << scopeID << " fully destructed." << std::endl;
 }
 
 };
@@ -488,15 +467,12 @@ public:
 //        make the previous current table as its parentScopeTable.
         currScopeTable = new ScopeTable(tableSize, currScopeTable);
         // cout << "New ScopeTable with id " << currScopeTable->getScopeId() << " created" << endl;
-        if (yydebug){
-            logFile << "New ScopeTable with id " << currScopeTable->getScopeId() << " created" << endl;
-        }
+        logFile << "New ScopeTable with id " << currScopeTable->getScopeId() << " created" << endl;
     }
 
     void exitScope() {
 //        Remove the current ScopeTable
-        if (yydebug){ printCurrScopeTable(); }
-
+        printCurrScopeTable();
         if(!isSymbolTableEmpty()){
 
             if (currScopeTable->getParentScope() == NULL) {
@@ -532,15 +508,7 @@ public:
             // cout << "< " << newSymbol->getSymbolName() << " : " << newSymbol->getSymbolType() << " > " << " already exists in current ScopeTable" <<endl;
             // logFile << "< " << newSymbol->getSymbolName() << " : " << newSymbol->getSymbolType() << " > " << " already exists in current ScopeTable" <<endl;
             // delete newSymbol;
-            if (yydebug){
-                logFile << newSymbol->getSymbolName() << " already exists in ScopeTable# " << currScopeTable->getScopeId() << endl;
-                error_count++;
-            }
             return false;
-        }
-
-        if (yydebug){
-            logFile << "Inserted: " << newSymbol->getSymbolName() << "at ScopeTable# " << currScopeTable->getScopeId() << endl;
         }
         
         currScopeTable->insert(newSymbol);
@@ -552,10 +520,11 @@ public:
         
         SymbolInfo *currSymbol = currScopeTable->lookup(symbol);
         if (currSymbol != NULL) {
-            if (yydebug){
-                logFile << "Found in ScopeTable# " << currScopeTable->getScopeId() << " at position " << currSymbol->getPosition() << endl;
-                logFile << "Deleted Entry " << currSymbol->getPosition() << " from current ScopeTable" << endl;
-            }
+            cout << "Found in ScopeTable# " << currScopeTable->getScopeId() << " at position " << currSymbol->getPosition() << endl;
+            cout << "Deleted Entry " << currSymbol->getPosition() << " from current ScopeTable" << endl;
+
+            // // logFile << "Found in ScopeTable# " << currScopeTable->getScopeId() << " at position " << currSymbol->getPosition() << endl;
+            // // logFile << "Deleted Entry " << currSymbol->getPosition() << " from current ScopeTable" << endl;
             currScopeTable->deleteSymbolFromCurrScope(symbol);
             return true;
         } 
@@ -569,15 +538,13 @@ public:
         while (scope) {
             SymbolInfo *currSymbol = scope->lookup(symbol);
             if (currSymbol != NULL) {
-                if (yydebug){
-                    logFile << "Found in ScopeTable# " << scope->getScopeId() << " at position " << currSymbol->getPosition() << endl;
-                }
+                // cout << "Found in ScopeTable# " << scope->getScopeId() << " at position " << currSymbol->getPosition() << endl;
+                // // logFile << "Found in ScopeTable# " << scope->getScopeId() << " at position " << currSymbol->getPosition() << endl;
                 return true;
             } else scope = scope->getParentScope();
         }
-        if (yydebug){
-            logFile << symbol << " Not found" << endl;
-        }
+        // cout << symbol << " Not found" << endl;
+        // // logFile << symbol << " Not found" << endl;
         return false;
     }
 
@@ -585,9 +552,8 @@ public:
         // lookup in the current scope
         SymbolInfo *currSymbol = currScopeTable->lookup(symbol);
         if (currSymbol != NULL) {
-            if (yydebug){
-                logFile << "Found in ScopeTable# " << currScopeTable->getScopeId() << " at position " << currSymbol->getPosition() << endl;
-            }
+            // cout << "Found in ScopeTable# " << scope->getScopeId() << " at position " << currSymbol->getPosition() << endl;
+            // // logFile << "Found in ScopeTable# " << scope->getScopeId() << " at position " << currSymbol->getPosition() << endl;
             return true;
         } else return false;
 
@@ -630,14 +596,6 @@ public:
         }
     }
 
-    bool getTableSchedule(){
-        return currScopeTable->getHasSchedule();
-    }
-
-    void setTableSchedule(bool res){
-        currScopeTable->setHasSchedule(res);
-    }
-
     bool isSymbolTableEmpty(){
         if(!currScopeTable){
             // cout << "NO CURRENT SCOPE" << endl;
@@ -645,16 +603,6 @@ public:
             return true;
         }
         else return false;
-    }
-
-    void setIsScopeReturn(bool set){
-        ScopeTable *tempScope = currScopeTable;
-        tempScope->setIsScopeReturn(set);
-    }
-
-    bool getIsScopeReturn(){
-        ScopeTable *tempScope = currScopeTable;
-        return tempScope->getIsScopeReturn();
     }
 
     ~SymbolTable() {
@@ -671,9 +619,7 @@ public:
             // logFile << "No more ScopeTables to destruct." << std::endl;
         }
     }
-    if(yydebug){
-        logFile << "SymbolTable fully destructed." << std::endl;
-    }
+    logFile << "SymbolTable fully destructed." << std::endl;
 }
 };
 

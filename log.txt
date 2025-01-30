@@ -1,34 +1,33 @@
-Opened output file: output.c
-Opened generated file: generado.c
-avanzo la maquina de estados de 0 a 1
-avanzo la maquina de estados de 0 a 1
-Checking if valores[3][8] exists in the current scope
-PASA POR LA COGISION DE VARIABLES PARA BROAD
-entro en pragmas y statePragma= 7
-entro en pragmas y statePragma= 7
-escribo en pre
-Checking if num_steps exists in the current scope
-PASA POR LA COGISION DE VARIABLES PARA BROAD
-Checking if step exists in the current scope
-entro en pragmas y statePragma= 7
-entro en pragmas y statePragma= 7
-ENCUENTRA REDUCTION
-Checking if sum exists in the current scope
-entro en pragmas y statePragma= 7
-entro en pragmas y statePragma= 7
-Checking if x exists in the current scope
-ENCUENTRA REDUCTION
-Checking if sum exists in the current scope
-entro en pragmas y statePragma= 1
-entro en pragmas y statePragma= 3
-entro en pragmas y statePragma= 3
-entro en pragmas y statePragma= 3
-entro en pragmas y statePragma= 3
-avanzo la maquina de estados de pragma de 3 a 5 
-entro en pragmas y statePragma= 5
-0
-Written contents of 'generado' to 'output'.
+Debug: INT_UNSIGNED_LONG_STATIC Debug: num_steps Debug: 
+Debug: DOUBLE Debug: step Debug: 
+Inserted Function: piHola in scope 1
+New ScopeTable with id 1.1 created
+ScopeTable 1.1 fully destructed.
+Inserted Function: main in scope 1
+New ScopeTable with id 1.2 created
+Inserted Parameter: argc in scope 1.2
+Inserted Parameter: argv in scope 1.2
+Debug: UNSIGNED_INT Debug: i Debug: 
+Debug: DOUBLE Debug: pi Debug: 
+Debug: DOUBLE Debug: PI25DT Debug: 
+Debug: DOUBLE Debug: x Debug: 
+Debug: DOUBLE Debug: sum Debug: 
+Debug: INT Debug: factor Debug: 
+Inserted: timeval in scope 1.2
+Debug: STRUCT Debug: t1 Debug: 
+Debug: STRUCT Debug: t2 Debug: 
+Debug: DOUBLE Debug: segundos Debug: 
+New ScopeTable with id 1.2.1 created
+New ScopeTable with id 1.2.1.1 created
+ScopeTable 1.2.1.1 fully destructed.
+ScopeTable 1.2.1 fully destructed.
+New ScopeTable with id 1.2.2 created
+ScopeTable 1.2.2 fully destructed.
+New ScopeTable with id 1.2.3 created
+ScopeTable 1.2.3 fully destructed.
+ScopeTable 1.2 fully destructed.
+ScopeTable 1 fully destructed.
 
-Total lines: 67
-Total errors: 3
+Total lines: 63
+Total errors: 0
 

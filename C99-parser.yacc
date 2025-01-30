@@ -1,22 +1,22 @@
 %{
 #include<bits/stdc++.h>
 #include "SymbolTable.h"
-#include "MPIwriter.h"
+#include "templates.h"
 void yyerror(char const *s);
 extern int yylex (void);
 
-int stateGlobal = 0;
-int stateFuncion = 0;
+int error_count = 0;
+
+int main_init = 0;
+int main_end = 0;
+int MPIInitDone = 0;
+long posInit = -100;
+long posVarsInit = -100;
 
 extern ofstream logFile;
 extern ofstream errFile;
-int statePragma = 0;
-bool saltaFor = true;
-std::string last_iter(""), first_iter("");
 
-std::ofstream generado;
-MPI_Writer mpi_writer;
-SymbolTable table(30);
+SymbolTable table(38);
 %}
 
 %union{
@@ -24,32 +24,32 @@ SymbolTable table(30);
 	vector <SymbolInfo*> *symList;
 }
 
-%token<sym> IDENTIFIER STRING_LITERAL SIZEOF
-%token<sym> PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
-%token<sym> AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
-%token<sym> SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN
-%token<sym> XOR_ASSIGN OR_ASSIGN
+%token SIZEOF
+%token PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
+%token AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
+%token SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN
+%token XOR_ASSIGN OR_ASSIGN
 
 %token<sym> TYPEDEF EXTERN STATIC AUTO REGISTER INLINE RESTRICT
 %token<sym> CHAR SHORT INT LONG SIGNED UNSIGNED FLOAT DOUBLE CONST VOLATILE VOID
-%token<sym> BOOL COMPLEX IMAGINARY
+%token<sym> BOOL COMPLEX IMAGINARY USER_DEFINED
 %token<sym> STRUCT UNION ENUM ELLIPSIS
 
-%token<sym> CASE DEFAULT IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
+%token CASE DEFAULT IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
 
-%token<sym> CONSTANT
+%token<sym> CONSTANT IDENTIFIER STRING_LITERAL
 
 %type<sym> type_specifier struct_or_union_specifier enum_specifier struct_or_union specifier_qualifier_list   
-%type<sym> storage_class_specifier direct_declarator declarator declaration_specifiers type_qualifier function_specifier   
-%type<sym> init_declarator initializer parameter_declaration  struct_declarator      
+%type<sym> storage_class_specifier direct_declarator declarator declaration_specifiers type_qualifier initializer_list
+%type<sym> init_declarator initializer parameter_declaration  struct_declarator type_name constant_expression
 
 %type<sym> primary_expression postfix_expression unary_expression cast_expression
 %type<sym> multiplicative_expression additive_expression shift_expression
-%type<sym> relational_expression equality_expression and_expression
+%type<sym> relational_expression equality_expression and_expression expression
 %type<sym> exclusive_or_expression inclusive_or_expression logical_and_expression
-%type<sym> logical_or_expression conditional_expression assignment_expression
+%type<sym> logical_or_expression conditional_expression assignment_expression function_specifier 
 %type<symList> init_declarator_list parameter_type_list parameter_list struct_declaration_list struct_declarator_list struct_declaration
-%type<symList> declaration_list identifier_list declaration 
+%type<symList> declaration_list identifier_list declaration  
 
 %start translation_unit
 %%
@@ -58,7 +58,7 @@ primary_expression
     : IDENTIFIER
     | CONSTANT {$$ = $1;}
     | STRING_LITERAL
-    | '(' expression ')'
+    | '(' expression ')' {$$ = $2;}
     ;
 
 postfix_expression
@@ -70,8 +70,8 @@ postfix_expression
 	| postfix_expression PTR_OP IDENTIFIER
 	| postfix_expression INC_OP
 	| postfix_expression DEC_OP
-	| '(' type_name ')' '{' initializer_list '}'
-	| '(' type_name ')' '{' initializer_list ',' '}'
+	| '(' type_name ')' '{' initializer_list '}' {$$ = $5;}
+	| '(' type_name ')' '{' initializer_list ',' '}'{$$ = $5;} 
 	;
 
 argument_expression_list
@@ -81,11 +81,11 @@ argument_expression_list
 
 unary_expression
 	: postfix_expression {$$ = $1;}
-	| INC_OP unary_expression
-	| DEC_OP unary_expression
-	| unary_operator cast_expression
-	| SIZEOF unary_expression
-	| SIZEOF '(' type_name ')'
+	| INC_OP unary_expression {$$ = $2;}
+	| DEC_OP unary_expression {$$ = $2;}
+	| unary_operator cast_expression {$$ = $2;}
+	| SIZEOF unary_expression {$$ = $2;}
+	| SIZEOF '(' type_name ')' {$$ = $3;}
 	;
 
 unary_operator
@@ -99,7 +99,7 @@ unary_operator
 
 cast_expression
 	: unary_expression {$$ = $1;}
-	| '(' type_name ')' cast_expression
+	| '(' type_name ')' cast_expression {$$ = $4;}
 	;
 
 multiplicative_expression
@@ -185,7 +185,7 @@ assignment_operator
 	;
 
 expression
-	: assignment_expression
+	: assignment_expression 
 	| expression ',' assignment_expression
 	;
 
@@ -195,47 +195,88 @@ constant_expression
 
 declaration
 	: declaration_specifiers ';'
+	{
+		if($1->isStruct()){
+			$$ = new vector<SymbolInfo*>();
+			SymbolInfo* symbol = new SymbolInfo(*$1);
+			$$->push_back(symbol);
+			table.insert($1);
+		}
+	}
+	
 	| declaration_specifiers init_declarator_list ';' {
 		$$ = new vector<SymbolInfo*>();
-		for(std::vector<SymbolInfo*>::size_type i = 0; i < $2->size(); i++){
-			$2->at(i)->setVariableType($1->getSymbolType());
-			SymbolInfo* symbol = new SymbolInfo(*$2->at(i));
-			$$->push_back(symbol);
-			table.insert($2->at(i));
-			
+		bool hasTypedef = (strstr($1->getSymbolType().c_str(), "TYPEDEF") != NULL);
+		if($1->isStruct()){
+			if($1->getParamList() != nullptr){
+				for(std::vector<SymbolInfo*>::size_type i = 0; i < $2->size(); i++){
+					logFile << "Debug: " << $1->getSymbolType() << " Debug: " << $2->at(i)->getSymbolName() << " Debug: " << $2->at(i)->getVariableType() << endl;
+					if(hasTypedef) $2->at(i)->setSymIsType(true);
+					$2->at(i)->setVariableType($1->getSymbolType());				
+					$2->at(i)->setIsStruct(true);
+					$2->at(i)->setParamList($1->getParamList());
+					SymbolInfo* symbol = new SymbolInfo(*$2->at(i));
+					$$->push_back(symbol);
+					table.insert($2->at(i));
+				}
+			}
+			else {
+				$1->setParamList($2);
+				$$->push_back($1);
+				for(std::vector<SymbolInfo*>::size_type i = 0; i < $2->size(); i++){
+					$2->at(i)->setVariableType($1->getSymbolName());
+					table.insert($2->at(i));
+				}
+			}
+		}
+		else{
+			for(std::vector<SymbolInfo*>::size_type i = 0; i < $2->size(); i++){
+				logFile << "Debug: " << $1->getSymbolType() << " Debug: " << $2->at(i)->getSymbolName() << " Debug: " << $2->at(i)->getVariableType() << endl;
+				$2->at(i)->setVariableType($1->getSymbolType());
+				if(hasTypedef) $2->at(i)->setSymIsType(true);
+				if(!$2->at(i)->isFunction()){
+					SymbolInfo* symbol = new SymbolInfo(*$2->at(i));
+					$$->push_back(symbol);
+					table.insert($2->at(i));
+				}
+			}
 		}
 	}
 	;
 
 declaration_specifiers
-	: storage_class_specifier
-	| storage_class_specifier declaration_specifiers {
-		std::ostringstream oss;
-		oss << $1->getSymbolType() << "_" << $2->getSymbolType();
-		$2->setSymbolType(oss.str());
-		$$ = $2; 
-	}
+	: storage_class_specifier { $$ = $1; }
+	| storage_class_specifier declaration_specifiers 
+		{ 
+			std::ostringstream oss;
+			oss << $1->getSymbolType() << "_" << $2->getSymbolType();
+			$2->setSymbolType(oss.str());
+			$$ = $2;
+		}
 	| type_specifier { $$ = $1; }
-	| type_specifier declaration_specifiers { 
-		std::ostringstream oss;
-		oss << $1->getSymbolType() << "_" << $2->getSymbolType();
-		$2->setSymbolType(oss.str());
-		$$ = $2; 
-	}
-	| type_qualifier {$$ = $1; }
-	| type_qualifier declaration_specifiers {
-		std::ostringstream oss;
-		oss << $1->getSymbolType() << "_" << $2->getSymbolType();
-		$2->setSymbolType(oss.str());
-		$$ = $2; 
-	}
-	| function_specifier {$$ = $1; }
-	| function_specifier declaration_specifiers { 
-		std::ostringstream oss;
-		oss << $1->getSymbolType() << "_" << $2->getSymbolType();
-		$2->setSymbolType(oss.str());
-		$$ = $2; 
-	}
+	| type_specifier declaration_specifiers 
+		{ 
+			std::ostringstream oss;
+			oss << $1->getSymbolType() << "_" << $2->getSymbolType();
+			$2->setSymbolType(oss.str());
+			$$ = $2;
+		}
+	| type_qualifier { $$ = $1; }
+	| type_qualifier declaration_specifiers 
+		{ 
+			std::ostringstream oss;
+			oss << $1->getSymbolType() << "_" << $2->getSymbolType();
+			$2->setSymbolType(oss.str());
+			$$ = $2;
+		}
+	| function_specifier { $$ = $1; }
+	| function_specifier declaration_specifiers 
+		{ 
+			std::ostringstream oss;
+			oss << $1->getSymbolType() << "_" << $2->getSymbolType();
+			$2->setSymbolType(oss.str());
+			$$ = $2;
+		}
 	;
 
 init_declarator_list
@@ -250,25 +291,74 @@ init_declarator
 
 storage_class_specifier
 	: TYPEDEF		{ $$ = new SymbolInfo("typedef", "TYPEDEF"); }
-	| EXTERN		{ $$ = new SymbolInfo("extern", "EXTERN"); }
-	| STATIC		{ $$ = new SymbolInfo("static", "STATIC"); }
-	| AUTO			{ $$ = new SymbolInfo("auto", "AUTO"); }
-	| REGISTER		{ $$ = new SymbolInfo("register", "REGISTER"); }
+	| { if (posVarsInit == -100 && !MPIInitDone) {
+			posVarsInit = output.tellp();
+			output.write("                                                            \n", 61);
+		} } EXTERN		{ $$ = new SymbolInfo("extern", "EXTERN"); }
+	| { if (posVarsInit == -100 && !MPIInitDone) {
+			posVarsInit = output.tellp();
+			output.write("                                                            \n", 61);
+		} } STATIC		{ $$ = new SymbolInfo("static", "STATIC"); }
+	| { if (posVarsInit == -100 && !MPIInitDone) {
+			posVarsInit = output.tellp();
+			output.write("                                                            \n", 61);
+		} } AUTO			{ $$ = new SymbolInfo("auto", "AUTO"); }
+	| { if (posVarsInit == -100 && !MPIInitDone) {
+			posVarsInit = output.tellp();
+			output.write("                                                            \n", 61);
+		} } REGISTER		{ $$ = new SymbolInfo("register", "REGISTER"); }
 	;
 
 type_specifier
-    : VOID          { $$ = new SymbolInfo("void", "VOID"); }
-    | CHAR          { $$ = new SymbolInfo("char", "CHAR"); }
-    | SHORT         { $$ = new SymbolInfo("short", "SHORT"); }
-    | INT           { $$ = new SymbolInfo("int", "INT"); }
-    | LONG          { $$ = new SymbolInfo("long", "LONG"); }
-    | FLOAT         { $$ = new SymbolInfo("float", "FLOAT"); }
-    | DOUBLE        { $$ = new SymbolInfo("double", "DOUBLE"); }
-    | SIGNED        { $$ = new SymbolInfo("signed", "SIGNED"); }
-    | UNSIGNED      { $$ = new SymbolInfo("unsigned", "UNSIGNED"); }
-    | BOOL          { $$ = new SymbolInfo("bool", "BOOL"); }
-    | COMPLEX       { $$ = new SymbolInfo("complex", "COMPLEX"); }
-    | IMAGINARY     { $$ = new SymbolInfo("imaginary", "IMAGINARY"); }
+    : { if (posVarsInit == -100 && !MPIInitDone) {
+			posVarsInit = output.tellp();
+			output.write("                                                            \n", 61);
+		} } VOID          { $$ = new SymbolInfo("void", "VOID"); }
+    | { if (posVarsInit == -100 && !MPIInitDone) {
+			posVarsInit = output.tellp();
+			output.write("                                                            \n", 61);
+		} } CHAR          { $$ = new SymbolInfo("char", "CHAR"); }
+    | { if (posVarsInit == -100 && !MPIInitDone) {
+			posVarsInit = output.tellp();
+			output.write("                                                            \n", 61);
+		} } SHORT         { $$ = new SymbolInfo("short", "SHORT"); }
+    | { if (posVarsInit == -100 && !MPIInitDone) {
+			posVarsInit = output.tellp();
+			output.write("                                                            \n", 61);
+		} } INT           { $$ = new SymbolInfo("int", "INT"); }
+    | { if (posVarsInit == -100 && !MPIInitDone) {
+			posVarsInit = output.tellp();
+			output.write("                                                            \n", 61);
+		} } LONG          { $$ = new SymbolInfo("long", "LONG"); }
+    | { if (posVarsInit == -100 && !MPIInitDone) {
+			posVarsInit = output.tellp();
+			output.write("                                                            \n", 61);
+		} } FLOAT         { $$ = new SymbolInfo("float", "FLOAT"); }
+    | { if (posVarsInit == -100 && !MPIInitDone) {
+			posVarsInit = output.tellp();
+			output.write("                                                            \n", 61);
+		} } DOUBLE        { $$ = new SymbolInfo("double", "DOUBLE"); }
+    | { if (posVarsInit == -100 && !MPIInitDone) {
+			posVarsInit = output.tellp();
+			output.write("                                                            \n", 61);
+		} } SIGNED        { $$ = new SymbolInfo("signed", "SIGNED"); }
+    | { if (posVarsInit == -100 && !MPIInitDone) {
+			posVarsInit = output.tellp();
+			output.write("                                                            \n", 61);
+		} } UNSIGNED      { $$ = new SymbolInfo("unsigned", "UNSIGNED"); }
+    | { if (posVarsInit == -100 && !MPIInitDone) {
+			posVarsInit = output.tellp();
+			output.write("                                                            \n", 61);
+		} } BOOL          { $$ = new SymbolInfo("bool", "BOOL"); }
+    | { if (posVarsInit == -100 && !MPIInitDone) {
+			posVarsInit = output.tellp();
+			output.write("                                                            \n", 61);
+		} } COMPLEX       { $$ = new SymbolInfo("complex", "COMPLEX"); }
+    | { if (posVarsInit == -100 && !MPIInitDone) {
+			posVarsInit = output.tellp();
+			output.write("                                                            \n", 61);
+		} } IMAGINARY     { $$ = new SymbolInfo("imaginary", "IMAGINARY"); }
+	| USER_DEFINED  { $$ = $1; }
     | struct_or_union_specifier  { $$ = $1; }
     | enum_specifier             { $$ = $1; }
     ;
@@ -278,15 +368,30 @@ struct_or_union_specifier
 	{ 
 		$2->setIsStruct(true);
 		$2->setVariableType($1->getSymbolType());
-		table.insert($2);
+		if (table.insert($2)) {
+			logFile << "Inserted: " << $2->getSymbolName() << " in scope " << table.printScopeId() << endl;
+		}else {
+			logFile << "Error: " << $2->getSymbolName() << " already exists in scope " << endl;
+			errFile << "Error: " << $2->getSymbolName() << " already exists in scope " << endl;
+			error_count++;
+		}
+		$2->setParamList($4);
+		for(std::vector<SymbolInfo*>::size_type i = 0; i < $4->size(); i++){
+			logFile << "Struct item 2: " << $4->at(i)->getSymbolName() << endl;
+		} 
+	
 	}
-	| struct_or_union '{' struct_declaration_list '}' {
-
-	}
+	| struct_or_union '{' struct_declaration_list '}'
 	| struct_or_union IDENTIFIER
 	{ 
 		$2->setIsStruct(true);
-		table.insert($2);
+		if (table.insert($2)) {
+			logFile << "Inserted: " << $2->getSymbolName() << " in scope " << table.printScopeId() << endl;
+		}else {
+			logFile << "Error: " << $2->getSymbolName() << " already exists in scope " << endl;
+			errFile << "Error: " << $2->getSymbolName() << " already exists in scope " << endl;
+			error_count++;
+		}
 	}
 	;
 
@@ -296,12 +401,17 @@ struct_or_union
 	;
 
 struct_declaration_list
-	: struct_declaration { 	$$ = $1; }
+	: struct_declaration { $$ = $1; 
+	for(std::vector<SymbolInfo*>::size_type i = 0; i < $1->size(); i++){
+			logFile << "Struct item: " << $1->at(i)->getSymbolName() << endl;
+		} 
+	}
 	
 	| struct_declaration_list struct_declaration 
 	{ 
 		for(std::vector<SymbolInfo*>::size_type i = 0; i < $2->size(); i++){
 			$1->push_back($2->at(i));
+			logFile << "Struct item: " << $2->at(i)->getSymbolName() << endl;
 		} 
 		$$ = $1; 
 	}
@@ -331,8 +441,8 @@ struct_declarator_list
 
 struct_declarator
 	: declarator { $$ = $1; }
-	| ':' constant_expression
-	| declarator ':' constant_expression
+	| ':' constant_expression { $$ = $2; }
+	| declarator ':' constant_expression { $$ = $1; }
 	;
 
 enum_specifier
@@ -354,14 +464,13 @@ enumerator
 	;
 
 type_qualifier
-	: CONST { $$ = new SymbolInfo("const", "CONST"); }
-	| RESTRICT { $$ = new SymbolInfo("restrict", "RESTRICT"); }
-	| VOLATILE { $$ = new SymbolInfo("volatile", "VOLATILE"); }
+	: CONST
+	| RESTRICT
+	| VOLATILE
 	;
 
-
 function_specifier
-	:  INLINE { $$ = new SymbolInfo("inline", "INLINE"); }
+	: INLINE
 	;
 
 declarator
@@ -417,47 +526,12 @@ direct_declarator
 		$1->setIsArray(true);
 		$$ = $1;
 	}
-	| direct_declarator '(' parameter_type_list 
-	{
-		/*comprobar si es main o una funcion normal */
-		stateFuncion = 0;
-		if($1->getSymbolName() == "main"){
-			stateGlobal = 3;
-		}
-		else{
-			mpi_writer.nueva_funcion();
-			stateGlobal = 2;
-		}
-
-	} ')' {
-		
+	| direct_declarator '(' parameter_type_list ')' {
 		$1->setParamList($3);
-		$1->setIsFunction(true);
 		$$ = $1;
 	}
-	| direct_declarator '(' identifier_list 
-	{
-		/*comprobar si es main o una funcion normal */
-		stateFuncion = 0;
-		if($1->getSymbolName() == "main"){
-			stateGlobal = 3;
-		}
-		else{
-			mpi_writer.nueva_funcion();
-			stateGlobal = 2;
-		}
-	} ')' { $$ = $1; }
-	| direct_declarator '('
-	{
-		stateFuncion = 0;
-		if($1->getSymbolName() == "main"){
-			stateGlobal = 3;
-		}
-		else{
-			mpi_writer.nueva_funcion();
-			stateGlobal = 2;
-		}
-	}')' { $$ = $1; }
+	| direct_declarator '(' identifier_list ')' { $$ = $1; }
+	| direct_declarator '(' ')' { $$ = $1; }
 	;
 
 pointer
@@ -524,13 +598,13 @@ direct_abstract_declarator
 
 initializer
 	: assignment_expression
-	| '{' initializer_list '}'
-	| '{' initializer_list ',' '}'
+	| '{' initializer_list '}' {$$ = $2;}
+	| '{' initializer_list ',' '}' {$$ = $2;}
 	;
 
 initializer_list
 	: initializer
-	| designation initializer
+	| designation initializer {$$ = $2;}
 	| initializer_list ',' initializer
 	| initializer_list ',' designation initializer
 	;
@@ -554,13 +628,7 @@ statement
 	| compound_statement 
 	| expression_statement
 	| { table.enterScope(); } selection_statement { table.exitScope(); }
-	| { table.enterScope(); } iteration_statement 
-	{
-		if(table.getTableSchedule() == true){
-			statePragma = 6; 
-		}
-		table.exitScope(); 
-	}
+	| { table.enterScope(); } iteration_statement { table.exitScope(); }
 	| jump_statement
 	;
 
@@ -571,17 +639,10 @@ labeled_statement
 	;
 
 compound_statement
-	: '{' { if (table.getIsScopeReturn()) { stateFuncion = 4; };  }'}' 
-	{ 
-		
-	}
-	| '{' block_item_list { if (table.getIsScopeReturn()) { stateFuncion = 4; };  } '}'
-	{ 
-		 if (stateFuncion == 2 && saltaFor == false){
-		 	logFile << "avanzo la maquina de estados de pragma de " << statePragma << " a 5 " << endl;
-		 	statePragma = 5;
-		 }
-	} 
+	: '{' '}'
+	| '{' 
+	block_item_list  
+	'}'
 	;
 
 block_item_list
@@ -590,13 +651,15 @@ block_item_list
 	;
 
 block_item
-	: declaration   
-	| {  //AVANZAMOS LA MAQUINA DE ESTADOS 
-		if(stateFuncion == 0 ){
-			logFile << "avanzo la maquina de estados de " << stateFuncion << " a " << stateFuncion+1 << endl;
-			stateFuncion++;
+	: declaration
+	| 
+	{
+		if(main_init == 1 && MPIInitDone == 0 && posInit == -100){
+			posInit = output.tellp();
+			output.write("                                                                                                                                                      \n", 151);
 		}
-	  } statement 
+	}
+	statement
 	;
 
 expression_statement
@@ -610,25 +673,40 @@ selection_statement
 	| SWITCH '(' expression ')' statement
 	;
 
-iteration_statement
-    : WHILE '(' expression ')' statement
-    | DO statement WHILE '(' expression ')' ';'
-    | FOR '(' expression_statement expression_statement ')' statement
-    | FOR '(' expression_statement expression_statement expression ')' statement
-    | FOR '(' declaration expression_statement ')' statement
-    | FOR '(' declaration expression_statement expression ')' statement
-    ;
+iteration_statement 
+	: WHILE '(' expression ')' statement
+	| DO statement WHILE '(' expression ')' ';'
+	| FOR '(' expression_statement expression_statement ')' statement
+	| FOR '(' expression_statement expression_statement expression ')' statement
+	| FOR '(' declaration expression_statement ')' statement
+	| FOR '(' declaration expression_statement expression ')' statement
+	;
 
 jump_statement
 	: GOTO IDENTIFIER ';'
 	| CONTINUE ';'
 	| BREAK ';'
-	| RETURN { if (table.getIsScopeReturn()) { stateFuncion = 4; };  } ';'
-	| RETURN { if (table.getIsScopeReturn()) { stateFuncion = 4; };  } expression ';'
+	| 
+	RETURN
+	{	
+		if(main_end == 1 && MPIInitDone == 1){
+			MPIFinalize();
+			main_end = 0;
+		}
+	}  ';'
+	|
+	RETURN
+	{	
+		if(main_end == 1 && MPIInitDone == 1){
+			MPIFinalize();
+			main_end = 0;
+		}
+	}
+	expression ';'
 	;
 
 translation_unit
-	: { mpi_writer.write_MPI_Includes(); stateFuncion = 0; } external_declaration 
+	: {output.write("                                    \n", 37); } external_declaration 
 	| translation_unit external_declaration
 	;
 
@@ -641,40 +719,58 @@ function_definition
 	: declaration_specifiers declarator {
 		$2->setIsFunction(true);
 		$2->setVariableType($1->getSymbolType());
-		table.insert($2);
+		if (table.insert($2)) {
+			logFile << "Inserted Function: " << $2->getSymbolName() << " in scope " << table.printScopeId() << endl;
+			if($2->getSymbolName() == "main"){
+				main_init = 1;
+			}
+		}
+		else {
+			logFile << "Error: " << $2->getSymbolName() << " already exists in scope " << endl;
+			errFile << "Error: " << $2->getSymbolName() << " already exists in scope " << endl;
+			error_count++;
+		}
 		table.enterScope();
-		table.setIsScopeReturn(true);
-
 	} declaration_list {
+	// 	for (auto symbol : *$4) {
+    //     logFile << "Debug Simbol: " << symbol->getSymbolName() << "\n";
+    // }
 		table.getSymbolInfo($2->getSymbolName())->setParamList($4);
-
 	} compound_statement {
 		$2->setIsDefined(true);
-		table.exitScope();
-		mpi_writer.mpi_write_caracter("\n",stateGlobal,stateFuncion);
-		stateGlobal = 1; 
-		stateFuncion =  0;
-			
-	}	
+		table.exitScope(); 
+	}
 	| declaration_specifiers declarator {
 		$2->setIsFunction(true);
 		$2->setVariableType($1->getSymbolType());
-		table.insert($2);
+		if (table.insert($2)) {
+			logFile << "Inserted Function: " << $2->getSymbolName() << " in scope " << table.printScopeId() << endl;
+			if($2->getSymbolName() == "main"){
+				main_init = 1;
+			}
+		}
+		else {
+			logFile << "Error: " << $2->getSymbolName() << " already exists in scope " << endl;
+			errFile << "Error: " << $2->getSymbolName() << " already exists in scope " << endl;
+			error_count++;
+		}
 		table.enterScope();
-		table.setIsScopeReturn(true);
 		if ($2->getParamList() != nullptr) {
 			for(std::vector<SymbolInfo*>::size_type i = 0; i < $2->getParamList()->size(); i++){
 				SymbolInfo* symbol = new SymbolInfo(*$2->getParamList()->at(i));
-				table.insert(symbol);
+				if (table.insert(symbol)) {
+					logFile << "Inserted Parameter: " << symbol->getSymbolName() << " in scope " << table.printScopeId() << endl;
+				}
+				else {
+					logFile << "Error: " << symbol->getSymbolName() << " already exists in scope " << endl;
+					errFile << "Error: " << symbol->getSymbolName() << " already exists in scope " << endl;
+					error_count++;
+				}
 			}
 		}
 	} compound_statement {
 		$2->setIsDefined(true);
 		table.exitScope();
-		mpi_writer.mpi_write_caracter("\n",stateGlobal,stateFuncion);
-		stateGlobal = 1; 
-		stateFuncion = 0; 
-			
 	}
 	;
 

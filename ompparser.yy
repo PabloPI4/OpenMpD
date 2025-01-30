@@ -13,6 +13,7 @@
 %define parse.error verbose
 
 %{
+using namespace std;
 /* DQ (2/10/2014): IF is conflicting with Boost template IF. */
 #undef IF
 
@@ -20,35 +21,48 @@
 #include <assert.h>
 #include <string.h>
 #include <assert.h>
-#include <bits/stdc++.h>
-#include "SymbolTable.h"
-#include "MPIwriter.h"
-
-int error_count = 0;
+#include <ostream>
+#include <iostream>
 
 /*the scanner function*/
 extern int openmp_lex(); 
 
 /*A customized initialization function for the scanner, str is the string to be scanned.*/
 extern void openmp_lexer_init(const char* str);
-
 /* Standalone ompparser */
 extern void start_lexer(const char* input);
 extern void end_lexer(void);
 
-extern ofstream logFile;
-extern ofstream errFile;
-
 extern void openmp_parse_expr();
 static int openmp_error(const char*);
+
+int chunk = 0;
+int contadorTask=0;
+int update = 0;
+extern int MPIInitDone;
+extern int main_end;
+extern int main_init;
+extern void MPIInit();
+
+int enCluster = 0;
+int enDistribute = 0;
+int enReductionCluster = 0;
+int enReductionDistribute = 0;
+int n_llaves = -100;
+extern int dist_n_llaves;
+
 void * (*exprParse)(const char*) = NULL;
 
-extern int statePragma;
-extern SymbolTable table;
-extern MPI_Writer mpi_writer;
-bool enCluster = false;
-bool enDistribute = true;
-bool enReduce = false;
+//From template
+extern void addArg(const char *arg);
+extern void MPIAlloc();
+extern void MPIBroad();
+extern void MPIScatterChunk();
+extern void MPITask();
+extern void MPIScatterHalo();
+extern void MPIUpdateHalo();
+extern void MPIWriteCluster();
+extern void MPI_Reduce(bool vars, const char *arg);
 
 %}
 
@@ -64,6 +78,7 @@ corresponding C type is union name defaults to YYSTYPE.
           const char* stype;
           void* ptype; /* For expressions or variables */
         }
+
 
 %token  OMP PARALLEL FOR DO DECLARE DISTRIBUTE LOOP SCAN SECTIONS SECTION SINGLE CANCEL TASKGROUP CANCELLATION POINT THREAD VARIANT THREADPRIVATE METADIRECTIVE MAPPER
         IF NUM_THREADS DEFAULT PRIVATE FIRSTPRIVATE SHARED COPYIN REDUCTION PROC_BIND ALLOCATE SIMD TASK LASTPRIVATE WHEN MATCH
@@ -85,7 +100,7 @@ corresponding C type is union name defaults to YYSTYPE.
  LINK DEVICE_TYPE MAP MAP_MODIFIER_ALWAYS MAP_MODIFIER_CLOSE MAP_MODIFIER_MAPPER MAP_TYPE_TO MAP_TYPE_FROM MAP_TYPE_TOFROM MAP_TYPE_ALLOC MAP_TYPE_RELEASE MAP_TYPE_DELETE EXT_ BARRIER TASKWAIT FLUSH RELEASE ACQUIRE ATOMIC READ WRITE CAPTURE HINT CRITICAL SOURCE SINK DESTROY THREADS
         CONCURRENT CLUSTER ALLOC BROAD SCATTER GATHER ALLGATHER ALLREDUCTION CHUNK HALO TASK_ASYNC 
 %token <itype> ICONSTANT
-%token <stype> EXPRESSION ID_EXPRESSION EXPR_STRING VAR_STRING TASK_REDUCTION
+%token <stype> EXPRESSION ID_EXPRESSION EXPR_STRING VAR_STRING TASK_REDUCTION 
 /* associativity and precedence */
 %left '<' '>' '=' "!=" "<=" ">="
 %left '+' '-'
@@ -94,47 +109,63 @@ corresponding C type is union name defaults to YYSTYPE.
 %type <stype> expression
 %type <stype> variable
 %type <stype> reduction_enum_identifier
+
 /* start point for the parsing */
 %start openmp_directive
 
 %%
 
 /* lang-dependent expression is only used in clause, at this point, the current_clause object should already be created. */
-expression : EXPR_STRING { }
-variable   : EXPR_STRING {
-  logFile << "Checking if " << $1 << " exists in the current scope" << endl;
-  if(table.lookup($1)==false){
-    errFile << "Error " << $1 << "doesnt exist in the current scope" << endl;  
-    error_count++;
-  }
-  else{
-	$$ = table.getSymbolInfo($1)->getSymbolName().c_str(); 
-  }
-} 
+expression : EXPR_STRING {$$=$1; }
+variable :   EXPR_STRING {$$=$1; } 
 
 /*expr_list : expression
         | expr_list ',' expression
         ;
 */
+
 var_list : variable
-        | var_list ',' variable
+          | var_list ',' variable
+          ;
+
+var_list_cluster : variable {
+                      printf("var: %s\n", $1);
+                      addArg($1);
+                    }
+        | var_list_cluster ',' variable 
+                    {
+                      printf("var: %s\n", $3);
+                      addArg($3);
+                    }
         ;
 
-var_list_broad : variable { mpi_writer.addArg($1); logFile << "PASA POR LA COGISION DE VARIABLES PARA BROAD" << endl; }
-        | var_list_broad ',' variable { mpi_writer.addArg($3); }
+var_list_reduction : variable { if(enReductionCluster || enReductionDistribute){MPI_Reduce(true, $1);}}
+        | var_list_reduction ',' variable { if(enReductionCluster || enReductionDistribute){MPI_Reduce(true, $3);}}
         ;
 
-var_list_reduction : variable { if(enReduce){mpi_writer.MPI_Reduce(false, $1);} }
-        | var_list_reduction ',' variable { if(enReduce){mpi_writer.MPI_Reduce(false, $3);} }
-        ;
+var_chunk : variable ':' CHUNK '(' variable ')'
+                  ;
 		
-var_chunk : variable ':' CHUNK '(' variable ')' { mpi_writer.addArg($1); mpi_writer.addArg($5); }
+var_chunk_cluster : variable ':' CHUNK '(' variable ')'
+            {
+              chunk = 1;
+              printf("var1: %s\n", $1);
+              addArg($1);
+              printf("var2: %s\n", $5);
+              addArg($5);
+            }
 		  ;
 		  
 var_chunk_list : var_chunk
 			   | var_chunk ',' var_chunk_list
+			   | var_list
 			   ;
-	   
+
+var_chunk_list_cluster : var_chunk_cluster
+                        | var_chunk_cluster ',' var_chunk_list_cluster
+                        | var_list_cluster
+                        ;
+
 openmp_directive : parallel_directive
                  | metadirective_directive
                  | declare_variant_directive
@@ -222,17 +253,34 @@ openmp_directive : parallel_directive
                  | target_parallel_do_simd_directive
                  | target_teams_distribute_parallel_do_directive
                  | target_teams_distribute_parallel_do_simd_directive
-                 | cluster_directive
-                 | declare_cluster_directive
-                 | end_declare_cluster_directive
-                 | cluster_data_directive
-                 | cluster_update_directive
-                 | cluster_teams_directive
-                 | cluster_distribute_directive
-                 | cluster_teams_distribute_directive
-                 | cluster_teams_master_directive
-                 | task_async_directive
+                 | {
+                      if(main_init == 1 && MPIInitDone == 0){
+                      	MPIInit();
+                      	main_init = 0;
+                      	MPIInitDone = 1;
+                      	main_end = 1;
+                      }
+
+                      if (!enCluster) {
+                        enCluster = 1;
+                        MPIWriteCluster();
+                      }
+                    }
+                    directiveAuxCluster
                  ;
+
+directiveAuxCluster
+                  : cluster_directive {n_llaves = 0;}
+				          | declare_cluster_directive
+				          | end_declare_cluster_directive
+				          | cluster_data_directive
+				          | cluster_update_directive
+				          | cluster_teams_directive
+				          | cluster_distribute_directive {enDistribute = 1; dist_n_llaves = 0;}
+				          | cluster_teams_distribute_directive {enDistribute = 1; dist_n_llaves = 0;}
+				          | cluster_teams_master_directive
+				          | task_async_directive
+                  ;
 
 variant_directive : parallel_directive
                   | metadirective_directive
@@ -449,7 +497,7 @@ match_clause : MATCH { }
 parallel_directive : PARALLEL { } parallel_clause_optseq
                    ;
 				   
-cluster_directive : CLUSTER { enCluster = true; statePragma = 7; } cluster_clause_optseq
+cluster_directive : CLUSTER { } cluster_clause_optseq
 				  ;
 				  
 declare_cluster_directive : DECLARE CLUSTER { }
@@ -461,32 +509,22 @@ end_declare_cluster_directive : END DECLARE CLUSTER { }
 cluster_data_directive : CLUSTER DATA { } cluster_data_clause_optseq
 					   ;
 
-cluster_update_directive : CLUSTER UPDATE { } cluster_update_clause_optseq
+cluster_update_directive : CLUSTER UPDATE { update =1; } cluster_update_clause_optseq { }
 			 ; 
 
-cluster_teams_directive : CLUSTER TEAMS { enCluster = true;} cluster_teams_clause_optseq
+cluster_teams_directive : CLUSTER TEAMS { } cluster_teams_clause_optseq
 			;
 
-cluster_distribute_directive : CLUSTER DISTRIBUTE 
-{
-  enCluster = true;
-  enDistribute = true;
-  statePragma = 7;
-} cluster_distribute_clause_optseq
+cluster_distribute_directive : CLUSTER DISTRIBUTE cluster_distribute_clause_optseq
 			     ;
 
-cluster_teams_distribute_directive : CLUSTER TEAMS DISTRIBUTE
-{
- enCluster = true;
- enDistribute = true; 
- statePragma = 7;
-} cluster_teams_distribute_clause_optseq
+cluster_teams_distribute_directive : CLUSTER TEAMS DISTRIBUTE cluster_teams_distribute_clause_optseq
 				   ;
 				   
-cluster_teams_master_directive : CLUSTER TEAMS MASTER { enCluster = true;} 
+cluster_teams_master_directive : CLUSTER TEAMS MASTER { } 
 							   ;
 						
-task_async_directive : TASK_ASYNC { } task_async_clause_optseq
+task_async_directive : TASK_ASYNC { } task_async_clause_optseq { MPITask(); }
 					 ;
 					 
 					   
@@ -1149,12 +1187,7 @@ threads_clause : THREADS { }
                ;
 simd_ordered_clause : SIMD { } 
                     ;
-teams_distribute_directive : TEAMS DISTRIBUTE {
-  if(enCluster == true){
-    enDistribute = true;
-  }
-
- } teams_distribute_clause_optseq 
+teams_distribute_directive : TEAMS DISTRIBUTE { } teams_distribute_clause_optseq 
                            ;
 teams_distribute_clause_optseq : /* empty */
                                | teams_distribute_clause_seq
@@ -1175,12 +1208,7 @@ teams_distribute_clause : num_teams_clause
                         | collapse_clause
                         | dist_schedule_clause
                         ;
-teams_distribute_simd_directive :  TEAMS DISTRIBUTE SIMD 
-{ 
-  if(enCluster == true){
-    enDistribute = true;
-  }
-} teams_distribute_simd_clause_optseq 
+teams_distribute_simd_directive :  TEAMS DISTRIBUTE SIMD { } teams_distribute_simd_clause_optseq 
                                 ;
 teams_distribute_simd_clause_optseq : /* empty */
                                     | teams_distribute_simd_clause_seq
@@ -1208,13 +1236,7 @@ teams_distribute_simd_clause : num_teams_clause
                              | nontemporal_clause
                              | order_clause
                              ;
-teams_distribute_parallel_for_directive :  TEAMS DISTRIBUTE PARALLEL FOR 
-{
-  if(enCluster == true){
-    enDistribute = true;
-    statePragma = 1;
-  }
-} teams_distribute_parallel_for_clause_optseq 
+teams_distribute_parallel_for_directive :  TEAMS DISTRIBUTE PARALLEL FOR { } teams_distribute_parallel_for_clause_optseq 
                                         ;
 teams_distribute_parallel_for_clause_optseq : /* empty */
                                             | teams_distribute_parallel_for_clause_seq
@@ -1244,13 +1266,7 @@ teams_distribute_parallel_for_clause : num_teams_clause
                                      | order_clause 
                                      | dist_schedule_clause                                   
                                      ;
-teams_distribute_parallel_do_directive :  TEAMS DISTRIBUTE PARALLEL DO 
-{ 
-  if(enCluster == true){
-    enDistribute = true;
-    statePragma = 1;
-  }
-} teams_distribute_parallel_do_clause_optseq 
+teams_distribute_parallel_do_directive :  TEAMS DISTRIBUTE PARALLEL DO { } teams_distribute_parallel_do_clause_optseq 
                                        ;
 teams_distribute_parallel_do_clause_optseq : /* empty */
                                            | teams_distribute_parallel_do_clause_seq
@@ -1280,13 +1296,7 @@ teams_distribute_parallel_do_clause : num_teams_clause
                                     | order_clause 
                                     | dist_schedule_clause                                   
                                      ;
-teams_distribute_parallel_for_simd_directive : TEAMS DISTRIBUTE PARALLEL FOR SIMD 
-{
-  if(enCluster == true){
-    enDistribute = true;
-    statePragma = 1;
-  }
-} teams_distribute_parallel_for_simd_clause_optseq 
+teams_distribute_parallel_for_simd_directive : TEAMS DISTRIBUTE PARALLEL FOR SIMD { } teams_distribute_parallel_for_simd_clause_optseq 
                                              ;
 teams_distribute_parallel_for_simd_clause_optseq : /* empty */
                                                  | teams_distribute_parallel_for_simd_clause_seq
@@ -1320,13 +1330,7 @@ teams_distribute_parallel_for_simd_clause : num_teams_clause
                                           | aligned_clause
                                           | nontemporal_clause
                                           ;
-teams_distribute_parallel_do_simd_directive : TEAMS DISTRIBUTE PARALLEL DO SIMD
-{
-  if(enCluster == true){
-    enDistribute = true;
-    statePragma = 1;
-  }
-} teams_distribute_parallel_do_simd_clause_optseq 
+teams_distribute_parallel_do_simd_directive : TEAMS DISTRIBUTE PARALLEL DO SIMD { } teams_distribute_parallel_do_simd_clause_optseq 
                                             ;
 teams_distribute_parallel_do_simd_clause_optseq : /* empty */
                                                 | teams_distribute_parallel_do_simd_clause_seq
@@ -1916,13 +1920,7 @@ do_simd_directive : DO SIMD { } do_simd_clause_optseq
                   ;
 do_simd_paired_directive : DO SIMD { } do_simd_paried_clause_optseq
                          ;
-parallel_for_simd_directive : PARALLEL FOR SIMD 
-{ 
-  if(enCluster == true){
-    enDistribute = true;
-    statePragma = 1;
-  }
-} parallel_for_simd_clause_optseq
+parallel_for_simd_directive : PARALLEL FOR SIMD parallel_for_simd_clause_optseq
                             ;
 parallel_do_simd_directive : PARALLEL DO SIMD { } parallel_for_simd_clause_optseq
                            ;
@@ -2072,8 +2070,8 @@ parallel_clause_optseq : /* empty */
                        | parallel_clause_seq
                        ;
 					   
-cluster_clause_optseq : /*empty*/
-                      | cluster_clause_seq
+cluster_clause_optseq : /* empty */
+					  | cluster_clause_seq
 					  ;					 
 
 cluster_data_clause_optseq : cluster_data_clause_seq
@@ -2235,7 +2233,7 @@ parallel_clause_seq : parallel_clause
                     | parallel_clause_seq ',' parallel_clause
                     ;
 					
-cluster_clause_seq : cluster_clause
+cluster_clause_seq : cluster_clause	
 				   | cluster_clause_seq cluster_clause
 				   | cluster_clause_seq ',' cluster_clause
 				   ;		
@@ -2423,15 +2421,14 @@ parallel_clause : if_parallel_clause
                 | allocate_clause
                 ;
 				
-cluster_clause : { statePragma = 7; } alloc_clause { mpi_writer.MPIAlloc(); }
+cluster_clause : alloc_clause
 			   | broad_clause
-			   | { statePragma = 7; } scatter_clause { mpi_writer.MPIScatterChunk(); }
+			   | scatter_clause
 			   | gather_clause
 			   | allgather_clause
 			   | halo_clause
-			   | { enReduce = true; logFile << "ENTRA EN REDUCE\n";} reduction_clause
+			   | {enReductionCluster = 1;} reduction_clause_cluster
 			   | allreduction_clause
-			   | map_clause
 			   ;
 				
 cluster_data_clause : alloc_clause
@@ -2473,12 +2470,13 @@ cluster_teams_clause : if_target_clause
                      ;
  
 cluster_distribute_clause : private_clause
-                          | firstprivate_clause 
-                          | lastprivate_distribute_clause
-                          | collapse_clause
-                          | dist_schedule_clause 
-                          | allocate_clause
-                          ;
+                  	  | firstprivate_clause 
+                  	  | lastprivate_distribute_clause
+                  	  | collapse_clause
+                  	  | dist_schedule_clause
+                 	  | allocate_clause
+                    | {enReductionDistribute = 1;} reduction_clause_cluster
+                 	  ;
 
 cluster_teams_distribute_clause : if_target_clause
                                 | device_clause
@@ -2496,19 +2494,19 @@ cluster_teams_distribute_clause : if_target_clause
                                 | thread_limit_clause
                                 | default_clause                   
                                 | shared_clause
-                                | reduction_default_only_clause
                                 | lastprivate_distribute_clause
                                 | collapse_clause
                                 | dist_schedule_clause
-                                | reduction_clause {enReduce = true;}
-                                | scatter_clause
+                                | {enReductionDistribute = 1;} reduction_clause_cluster
                                 ;
 					
 task_async_clause : DEPEND { } '(' dependance_type ':' var_list ')' 
 				  ;
 
-dependance_type : IN { }
-				| OUT { }
+dependance_type : IN {printf("var: IN\n");
+                      addArg("IN"); }
+				| OUT {printf("var: OUT\n");
+                      addArg("OUT"); }
 				;
 
 							
@@ -3116,13 +3114,21 @@ allocator_parameter : DEFAULT_MEM_ALLOC { }
 private_clause : PRIVATE { } '(' var_list ')' { }
                ;
 
-alloc_clause : ALLOC { } '(' var_list_broad ')' ;
+alloc_clause : ALLOC '(' var_list_cluster ')' { MPIAlloc(); };
 
-broad_clause : BROAD { } '(' var_list_broad ')' { mpi_writer.MPIBroad(); };
+broad_clause : BROAD { } '(' var_list_cluster ')' { MPIBroad(); };
 
-scatter_clause : SCATTER { } '(' var_chunk_list ')' ;
+scatter_clause : SCATTER { } '(' var_chunk_list_cluster ')'  { if(chunk == 1){ MPIScatterChunk(); }} ;
 			   
-halo_clause : HALO { } '(' var_chunk ')';
+halo_clause : HALO { } '(' var_chunk ')'
+	{ 
+		if(update==1){
+			MPIUpdateHalo(); 
+			update = 0;
+		}else{
+			MPIScatterHalo(); 
+		}
+	} ; 
 			   
 gather_clause : GATHER { } '(' var_chunk_list ')' ;
 			  
@@ -3226,13 +3232,7 @@ allocator1_parameter : DEFAULT_MEM_ALLOC { }
                      | EXPR_STRING { }
                      ;
 
-dist_schedule_clause : DIST_SCHEDULE '(' dist_schedule_parameter ')' 
-                      {
-                        if(enCluster == true && enDistribute == true){
-                          statePragma = 2;
-                          table.setTableSchedule(true);
-                        }
-                      }
+dist_schedule_clause : DIST_SCHEDULE '(' dist_schedule_parameter ')' {}
                      ;
 dist_schedule_parameter : STATIC { }
                         | STATIC { } ',' EXPR_STRING { }
@@ -3272,15 +3272,26 @@ schedule_enum_kind : STATIC { }
 shared_clause : SHARED { } '(' var_list ')'
               ;
 
-reduction_clause : REDUCTION { } '(' reduction_parameter ':' var_list_reduction ')' {
+reduction_clause : REDUCTION { } '(' reduction_parameter ':' var_list ')' {
                  }
                  ;
 
-reduction_parameter : reduction_identifier
+reduction_clause_cluster : REDUCTION { } '(' reduction_parameter_cluster ':' var_list_reduction ')'
+                 ;
+
+reduction_parameter_cluster : reduction_identifier_cluster
+                            | reduction_modifier ',' reduction_identifier_cluster
+                            ;
+                    
+reduction_identifier_cluster : reduction_enum_identifier { if(enReductionCluster || enReductionDistribute){MPI_Reduce(false, $1);}}
+                              | EXPR_STRING { }
+                              ;
+
+reduction_parameter : reduction_identifier {}
                     | reduction_modifier ',' reduction_identifier
                     ;
 
-reduction_identifier : reduction_enum_identifier { if(enReduce){mpi_writer.MPI_Reduce(true, $1);} }
+reduction_identifier : reduction_enum_identifier {}
                      | EXPR_STRING { }
                      ;
 
@@ -3289,16 +3300,16 @@ reduction_modifier : MODIFIER_INSCAN { }
                    | MODIFIER_DEFAULT { }
                    ;
 
-reduction_enum_identifier : '+'{ }
+reduction_enum_identifier : '+'{ $$ = "+"; }
                           | '-'{ }
-                          | '*'{ }
-                          | '&'{ }
-                          | '|'{ }
-                          | '^'{ }
+                          | '*'{ $$ = "*"; }
+                          | '&'{ $$ = "&"; }
+                          | '|'{ $$ = "|"; }
+                          | '^'{ $$ = "^"; }
                           | LOGAND{ }
                           | LOGOR{ }
-                          | MAX{ }
-                          | MIN{ }
+                          | MAX{ $$ = "MAX"; }
+                          | MIN{ $$ = "MIN"; }
                           ;
 
 reduction_default_only_clause : REDUCTION { } '(' reduction_default_only_parameter ':' var_list ')' {
@@ -3314,12 +3325,12 @@ reduction_default_only_modifier : MODIFIER_DEFAULT { }
 
 %%
 
-int yyerror(char const *s)
-{
-	fprintf(stdout, "error: %s\n",s);
-  return 0;
-
-} 
+int yyerror(const char *s) {
+    // printf(" %s!\n", s);
+    fprintf(stdout,"error: %s\n",s);
+    return 0;
+}
+ 
 int yywrap()
 {
     return 1;
@@ -3327,7 +3338,7 @@ int yywrap()
 
 // Standalone ompparser
 void parseOpenMP(const char* _input, void * _exprParse(const char*)) {
-    //printf("Start parsing...\n");
+    printf("Start parsing...\n");
     const char *input = _input;
     start_lexer(input);
     yyparse();
