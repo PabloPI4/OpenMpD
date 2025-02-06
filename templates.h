@@ -15,6 +15,10 @@ using namespace std;
 vector<const char *> args;
 std::vector<const char *> argsReduceOps;
 std::vector<const char *> argsReduceVars;
+std::vector<const char *> argsAllReduceOps;
+std::vector<const char *> argsAllReduceVars;
+std::vector<std::vector<const char *>> argsScatter;
+std::vector<std::vector<const char *>> argsGather;
 string DeclareTypes = "void DeclareTypesMPI() {\n";
 
 extern ofstream output, errFile;
@@ -705,6 +709,75 @@ void calcularReduceFinal() {
     argsReduceVars.clear();
 }
 
+void MPI_AllReduce(bool vars, const char *arg) {
+    if (vars) {
+        argsAllReduceVars.push_back(arg);
+    }
+    else {
+        argsAllReduceOps.push_back(arg);
+    }
+}
+
+void calcularAllReduceFinal() {
+    std::string finalReduce = "\n";
+
+    if (argsAllReduceOps.size() != argsAllReduceVars.size()) {
+        exit(120);
+    }
+
+    for (long unsigned int i = 0; i < argsAllReduceOps.size(); i++) {
+        string opMPI;
+        if (strcmp(argsAllReduceOps.at(i), "+") == 0) {
+            opMPI = "MPI_SUM";
+        }
+        else if (strcmp(argsReduceOps.at(i), "*") == 0) {
+            opMPI = "MPI_PROD";
+        }
+        else if (strcmp(argsReduceOps.at(i), "MAX") == 0) {
+            opMPI = "MPI_MAX";
+        }
+        else if (strcmp(argsReduceOps.at(i), "MIN") == 0) {
+            opMPI = "MPI_MIN";
+        }
+        else if (strcmp(argsReduceOps.at(i), "&") == 0) {
+            opMPI = "MPI_LAND";
+        }
+        else if (strcmp(argsReduceOps.at(i), "|") == 0) {
+            opMPI = "MPI_LOR";
+        }
+        else if (strcmp(argsReduceOps.at(i), "^") == 0) {
+            opMPI = "MPI_LXOR";
+        }
+        else {
+            fprintf(stderr, "Operacion de reduction no valida\n");
+            exit(20);
+        }
+
+        SymbolInfo *infoVar = table.getSymbolInfo(argsAllReduceVars.at(i));
+        std::string toUpper;
+        std::string toLower;
+        toUpper += infoVar->getVariableType();
+        toLower += infoVar->getVariableType();
+
+        for (long unsigned int j = 0; j < infoVar->getVariableType().size(); j++) {
+            toUpper.at(j) = toupper(infoVar->getVariableType().at(j));
+            toLower.at(j) = tolower(infoVar->getVariableType().at(j));
+        }
+
+        finalReduce += (toLower + " __" + argsAllReduceVars.at(i) + ";\n");
+            
+        finalReduce = finalReduce + "MPI_Allreduce(&" + argsAllReduceVars.at(i) + ", &__" + argsAllReduceVars.at(i) + ", 1, " + translateTypes(toUpper) +
+         ", " + opMPI + ", MPI_COMM_WORLD);\n";
+
+        finalReduce = finalReduce + argsAllReduceVars.at(i) + " = __" + argsAllReduceVars.at(i) + ";\n";
+    }
+
+    output << finalReduce << endl;
+
+    argsAllReduceOps.clear();
+    argsAllReduceVars.clear();
+}
+
 string construirReductionDist() {
     string reduccion = " reduction(";
 
@@ -727,6 +800,29 @@ string construirReductionDist() {
     reduccion += ")";
 
     return reduccion;
+}
+
+void GatherConChunk(std::vector<const char *> argsG) {
+    output << "CON CHUNKKKKK" << endl;
+}
+
+void GatherSinChunk(std::vector<const char *> argsG) {
+    output << "SIN CHUNKKKKK" << endl;
+}
+
+void MPIGather() {
+    for (int i = 0; i < argsGather.size(); i++) {
+        if (argsGather.at(i).size() == 1) {
+            GatherSinChunk(argsGather.at(i));
+        }
+        else if (argsGather.at(i).size() == 2) {
+            GatherConChunk(argsGather.at(i));
+        }
+        else {
+            fprintf(stderr, "Numero de argumentos de gather incorrectos\n");
+            exit(210);
+        }
+    }
 }
 
 #endif 

@@ -41,7 +41,7 @@ step = 1.0/(double) num_steps;
 
 #pragma omp cluster broad(num_steps, step)
 {
-#pragma omp cluster teams distribute reduction(+:sum)
+#pragma omp cluster teams distribute allreduction(+:sum)
 #pragma omp parallel for simd private(x)
 for (i=0;i< num_steps; i++) {
     x = (i+0.5)*step;

@@ -48,6 +48,13 @@ int enCluster = 0;
 int enDistribute = 0;
 int enReductionCluster = 0;
 int enReductionDistribute = 0;
+int enAllReductionCluster = 0;
+int enAllReductionDistribute = 0;
+int enScatter = 0;
+int enGatherCluster = 0;
+int enGatherDistribute = 0;
+int enAllGatherCluster = 0;
+int enAllGatherDistribute = 0;
 int n_llaves = -100;
 extern int dist_n_llaves;
 
@@ -63,6 +70,7 @@ extern void MPIScatterHalo();
 extern void MPIUpdateHalo();
 extern void MPIWriteCluster();
 extern void MPI_Reduce(bool vars, const char *arg);
+extern void MPI_AllReduce(bool vars, const char *arg);
 
 %}
 
@@ -141,6 +149,10 @@ var_list_cluster : variable {
 
 var_list_reduction : variable { if(enReductionCluster || enReductionDistribute){MPI_Reduce(true, $1);}}
         | var_list_reduction ',' variable { if(enReductionCluster || enReductionDistribute){MPI_Reduce(true, $3);}}
+        ;
+
+var_list_allreduction : variable { if(enAllReductionCluster || enAllReductionDistribute){MPI_AllReduce(true, $1);}}
+        | var_list_allreduction ',' variable { if(enAllReductionCluster || enAllReductionDistribute){MPI_AllReduce(true, $3);}}
         ;
 
 var_chunk : variable ':' CHUNK '(' variable ')'
@@ -2428,7 +2440,7 @@ cluster_clause : alloc_clause
 			   | allgather_clause
 			   | halo_clause
 			   | {enReductionCluster = 1;} reduction_clause_cluster
-			   | allreduction_clause
+			   | {enAllReductionCluster = 1;} allreduction_clause_cluster
 			   ;
 				
 cluster_data_clause : alloc_clause
@@ -2476,6 +2488,7 @@ cluster_distribute_clause : private_clause
                   	  | dist_schedule_clause
                  	  | allocate_clause
                     | {enReductionDistribute = 1;} reduction_clause_cluster
+                    | {enAllReductionDistribute = 1;} allreduction_clause_cluster
                  	  ;
 
 cluster_teams_distribute_clause : if_target_clause
@@ -2498,6 +2511,7 @@ cluster_teams_distribute_clause : if_target_clause
                                 | collapse_clause
                                 | dist_schedule_clause
                                 | {enReductionDistribute = 1;} reduction_clause_cluster
+                                | {enAllReductionDistribute = 1;} allreduction_clause_cluster
                                 ;
 					
 task_async_clause : DEPEND { } '(' dependance_type ':' var_list ')' 
@@ -3277,11 +3291,21 @@ reduction_clause : REDUCTION { } '(' reduction_parameter ':' var_list ')' {
                  ;
 
 reduction_clause_cluster : REDUCTION { } '(' reduction_parameter_cluster ':' var_list_reduction ')'
-                 ;
+                         ;
+
+allreduction_clause_cluster : ALLREDUCTION { } '(' allreduction_parameter_cluster ':' var_list_allreduction ')'
+                            ;
+
+allreduction_parameter_cluster : allreduction_identifier_cluster
+                               | reduction_modifier ',' reduction_identifier_cluster
 
 reduction_parameter_cluster : reduction_identifier_cluster
                             | reduction_modifier ',' reduction_identifier_cluster
                             ;
+
+allreduction_identifier_cluster : reduction_enum_identifier { if(enAllReductionCluster || enAllReductionDistribute){MPI_AllReduce(false, $1);}}
+                                | EXPR_STRING { }
+                                ;
                     
 reduction_identifier_cluster : reduction_enum_identifier { if(enReductionCluster || enReductionDistribute){MPI_Reduce(false, $1);}}
                               | EXPR_STRING { }

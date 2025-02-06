@@ -72,14 +72,15 @@ if (__taskid >= ((( num_steps) - (0)) % __numprocs))
 __end = __start + __iter;
 if (__taskid == (__numprocs - 1)) assert(__end == ( num_steps));
 
-#pragma omp parallel for simd private(x) reduction(+:sum)
+#pragma omp parallel for simd private(x)
 	for (int __distrib = __start; __distrib < __end;  __distrib++) {
 	    x = (__distrib+0.5)*step;
 	    sum += 4.0/(1.0+x*x);
 	}
+
 double __sum;
-MPI_Reduce(&sum, &__sum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-if (__taskid == 0) { sum = __sum; }
+MPI_Allreduce(&sum, &__sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+sum = __sum;
 
 
 	pi = step * sum;

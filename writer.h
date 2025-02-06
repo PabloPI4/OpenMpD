@@ -29,12 +29,15 @@ extern int enCluster;
 extern int enDistribute;
 extern int enReductionCluster;
 extern int enReductionDistribute;
+extern int enAllReductionCluster;
+extern int enAllReductionDistribute;
 
 extern void MPIEmpezarSecuencial();
 extern void finSecuencial();
 extern void MPITaskEnd();
 extern void MPIDistribute(string ini, string fin);
 extern void calcularReduceFinal();
+extern void calcularAllReduceFinal();
 
 void calcularDistribute(string *ini, string *fin, char **linea);
 bool comprobarLlavesCluster(char *linea);
@@ -141,15 +144,27 @@ void updateText() {
 
         //Si se han leido el mismo numero de llaves de apertura que de cierre estando en cluster y estos dos son mayor que 0, entonces se cierra el cluster
         if (enCluster && n_llaves == -100) {
-            if (enReductionCluster)
+            if (enReductionCluster) {
                 calcularReduceFinal();
+                enReductionCluster = 0;
+            }
+            if (enAllReductionCluster) {
+                calcularAllReduceFinal();
+                enAllReductionCluster = 0;
+            }
             MPIEmpezarSecuencial();
             enCluster = 0;
         }
         //Si se han leido el mismo numero de llaves de apertura que de cierre estando en distribute y estos dos son mayor que 0, entonces se cierra el distribute
         if (enDistribute && dist_n_llaves == -100) {
-            if (enReductionDistribute)
+            if (enReductionDistribute) {
                 calcularReduceFinal();
+                enReductionCluster = 0;
+            }
+            if (enAllReductionDistribute) {
+                calcularAllReduceFinal();
+                enAllReductionCluster = 0;
+            }
             enDistribute = 0;
             enFor = 0;
         }
