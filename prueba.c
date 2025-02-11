@@ -6,5 +6,5 @@ int main() {
 	a[i] = (int *) malloc(2 * sizeof(int));
     }
 
-    #pragma omp cluster scatter(a[10][2]:chunk(2))
+    return 0;
 }

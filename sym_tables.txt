@@ -12,6 +12,7 @@ ScopeTable # 1.2
  1 --> | < argc , INT > |
  6 --> | < x , DOUBLE > |
  7 --> | < pi , DOUBLE > |
+ 8 --> | < valores , Pointer Symbol , INT > |
  18 --> | < segundos , DOUBLE > |
  20 --> | < argv , Pointer Symbol , CHAR > |
  24 --> | < PI25DT , DOUBLE > |

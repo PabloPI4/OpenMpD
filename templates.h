@@ -13,12 +13,17 @@
 using namespace std;
 
 vector<const char *> args;
-std::vector<const char *> argsReduceOps;
-std::vector<const char *> argsReduceVars;
-std::vector<const char *> argsAllReduceOps;
-std::vector<const char *> argsAllReduceVars;
 std::vector<std::vector<const char *>> argsScatter;
 std::vector<std::vector<const char *>> argsGather;
+std::vector<std::vector<const char *>> argsAllGather;
+std::vector<const char *> argsReduceOpsCluster;
+std::vector<std::vector<const char *>> argsReduceVarsCluster;
+std::vector<const char *> argsAllReduceOpsCluster;
+std::vector<std::vector<const char *>> argsAllReduceVarsCluster;
+std::vector<const char *> argsReduceOpsDistribute;
+std::vector<std::vector<const char *>> argsReduceVarsDistribute;
+std::vector<const char *> argsAllReduceOpsDistribute;
+std::vector<std::vector<const char *>> argsAllReduceVarsDistribute;
 string DeclareTypes = "void DeclareTypesMPI() {\n";
 
 extern ofstream output, errFile;
@@ -28,6 +33,8 @@ extern int zonaPragma;
 extern int finalizeOK;
 extern int contadorTask;
 extern int enCluster;
+extern int chunk_pos;
+extern int enDistribute;
 
 extern int chunk;
 extern int task;
@@ -55,8 +62,76 @@ void finSecuencial(){
     output << "\t}" << endl;
 }
 
+void aumentarReduction() {
+    if (enDistribute)
+        argsReduceVarsDistribute.push_back({});
+    else
+        argsReduceVarsCluster.push_back({});
+}
+
+void aumentarAllReduction() {
+    if (enDistribute)
+        argsAllReduceVarsDistribute.push_back({});
+    else
+        argsAllReduceVarsCluster.push_back({});
+}
+
+void aumentarScatter() {
+    argsScatter.push_back({});
+}
+
+void aumentarGather() {
+    argsGather.push_back({});
+}
+
+void aumentarAllGather() {
+    argsAllGather.push_back({});
+}
+
+void addArgScatter(const char *arg) {
+    argsScatter.at(chunk_pos).push_back(arg);
+}
+
+void addArgGather(const char *arg) {
+    argsGather.at(chunk_pos).push_back(arg);
+}
+
+void addArgAllGather(const char *arg) {
+    argsAllGather.at(chunk_pos).push_back(arg);
+}
+
 void addArg(const char *arg){
     args.push_back(arg);
+}
+
+void addReduce(bool vars, const char *arg) {
+    if (vars) {
+        if (enDistribute)
+            argsReduceVarsDistribute.at(argsReduceVarsDistribute.size() - 1).push_back(arg);
+        else
+            argsReduceVarsCluster.at(argsReduceVarsCluster.size() - 1).push_back(arg);
+    }
+    else {
+        if (enDistribute)
+            argsReduceOpsDistribute.push_back(arg);
+        else
+            argsReduceOpsCluster.push_back(arg);
+    }
+}
+
+void addAllReduce(bool vars, const char *arg) {
+    if (vars) {
+        if (enDistribute)
+            argsAllReduceVarsDistribute.at(argsAllReduceVarsDistribute.size() - 1).push_back(arg);
+        else
+            argsAllReduceVarsCluster.at(argsAllReduceVarsCluster.size() - 1).push_back(arg);
+    }
+    else {
+        if (enDistribute)
+            argsAllReduceOpsDistribute.push_back(arg);
+        else
+            argsAllReduceOpsCluster.push_back(arg);
+    }
 }
 
 string aMayuscula(string cadena) {
@@ -640,43 +715,46 @@ void MPIDistribute(string ini, string fin) {
     output << distribute << endl;
 }
 
-void MPI_Reduce(bool vars, const char *arg) {
-    if (vars) {
-        argsReduceVars.push_back(arg);
+void calcularReduceFinal(bool cluster) {
+    std::vector<std::vector<const char *>> *argsReduceVars;
+    std::vector<const char *> *argsReduceOps;
+
+    if (cluster) {
+        argsReduceVars = &argsReduceVarsCluster;
+        argsReduceOps = &argsReduceOpsCluster;
     }
     else {
-        argsReduceOps.push_back(arg);
+        argsReduceVars = &argsReduceVarsDistribute;
+        argsReduceOps = &argsReduceOpsDistribute;
     }
-}
 
-void calcularReduceFinal() {
     std::string finalReduce = "\n";
 
-    if (argsReduceOps.size() != argsReduceVars.size()) {
+    if ((*argsReduceOps).size() != (*argsReduceVars).size()) {
         exit(120);
     }
 
-    for (long unsigned int i = 0; i < argsReduceOps.size(); i++) {
+    for (long unsigned int i = 0; i < (*argsReduceOps).size(); i++) {
         string opMPI;
-        if (strcmp(argsReduceOps.at(i), "+") == 0) {
+        if (strcmp((*argsReduceOps).at(i), "+") == 0) {
             opMPI = "MPI_SUM";
         }
-        else if (strcmp(argsReduceOps.at(i), "*") == 0) {
+        else if (strcmp((*argsReduceOps).at(i), "*") == 0) {
             opMPI = "MPI_PROD";
         }
-        else if (strcmp(argsReduceOps.at(i), "MAX") == 0) {
+        else if (strcmp((*argsReduceOps).at(i), "MAX") == 0) {
             opMPI = "MPI_MAX";
         }
-        else if (strcmp(argsReduceOps.at(i), "MIN") == 0) {
+        else if (strcmp((*argsReduceOps).at(i), "MIN") == 0) {
             opMPI = "MPI_MIN";
         }
-        else if (strcmp(argsReduceOps.at(i), "&") == 0) {
+        else if (strcmp((*argsReduceOps).at(i), "&") == 0) {
             opMPI = "MPI_LAND";
         }
-        else if (strcmp(argsReduceOps.at(i), "|") == 0) {
+        else if (strcmp((*argsReduceOps).at(i), "|") == 0) {
             opMPI = "MPI_LOR";
         }
-        else if (strcmp(argsReduceOps.at(i), "^") == 0) {
+        else if (strcmp((*argsReduceOps).at(i), "^") == 0) {
             opMPI = "MPI_LXOR";
         }
         else {
@@ -684,68 +762,73 @@ void calcularReduceFinal() {
             exit(20);
         }
 
-        SymbolInfo *infoVar = table.getSymbolInfo(argsReduceVars.at(i));
-        std::string toUpper;
-        std::string toLower;
-        toUpper += infoVar->getVariableType();
-        toLower += infoVar->getVariableType();
+        for (long unsigned int varIt = 0; varIt < (*argsReduceVars).at(i).size(); varIt++) {
+            SymbolInfo *infoVar = table.getSymbolInfo((*argsReduceVars).at(i).at(varIt));
+            std::string toUpper;
+            std::string toLower;
+            toUpper += infoVar->getVariableType();
+            toLower += infoVar->getVariableType();
 
-        for (long unsigned int j = 0; j < infoVar->getVariableType().size(); j++) {
-            toUpper.at(j) = toupper(infoVar->getVariableType().at(j));
-            toLower.at(j) = tolower(infoVar->getVariableType().at(j));
+            for (long unsigned int j = 0; j < infoVar->getVariableType().size(); j++) {
+                toUpper.at(j) = toupper(infoVar->getVariableType().at(j));
+                toLower.at(j) = tolower(infoVar->getVariableType().at(j));
+            }
+
+            finalReduce += (toLower + " __" + (*argsReduceVars).at(i).at(varIt) + ";\n");
+
+            finalReduce = finalReduce + "MPI_Reduce(&" + (*argsReduceVars).at(i).at(varIt) + ", &__" + (*argsReduceVars).at(i).at(varIt) + ", 1, " + translateTypes(toUpper) +
+             ", " + opMPI + ", 0, MPI_COMM_WORLD);\n";
+
+            finalReduce = finalReduce + "if (__taskid == 0) { " + (*argsReduceVars).at(i).at(varIt) + " = __" + (*argsReduceVars).at(i).at(varIt) + "; }\n";
         }
-
-        finalReduce += (toLower + " __" + argsReduceVars.at(i) + ";\n");
-            
-        finalReduce = finalReduce + "MPI_Reduce(&" + argsReduceVars.at(i) + ", &__" + argsReduceVars.at(i) + ", 1, " + translateTypes(toUpper) +
-         ", " + opMPI + ", 0, MPI_COMM_WORLD);\n";
-
-        finalReduce = finalReduce + "if (__taskid == 0) { " + argsReduceVars.at(i) + " = __" + argsReduceVars.at(i) + "; }\n";
     }
 
     output << finalReduce << endl;
 
-    argsReduceOps.clear();
-    argsReduceVars.clear();
+    (*argsReduceOps).clear();
+    (*argsReduceVars).clear();
 }
 
-void MPI_AllReduce(bool vars, const char *arg) {
-    if (vars) {
-        argsAllReduceVars.push_back(arg);
+void calcularAllReduceFinal(bool cluster) {
+    std::vector<std::vector<const char *>> *argsAllReduceVars;
+    std::vector<const char *> *argsAllReduceOps;
+
+    if (cluster) {
+        argsAllReduceVars = &argsAllReduceVarsCluster;
+        argsAllReduceOps = &argsAllReduceOpsCluster;
     }
     else {
-        argsAllReduceOps.push_back(arg);
+        argsAllReduceVars = &argsAllReduceVarsDistribute;
+        argsAllReduceOps = &argsAllReduceOpsDistribute;
     }
-}
 
-void calcularAllReduceFinal() {
     std::string finalReduce = "\n";
 
-    if (argsAllReduceOps.size() != argsAllReduceVars.size()) {
+    if ((*argsAllReduceOps).size() != (*argsAllReduceVars).size()) {
         exit(120);
     }
 
-    for (long unsigned int i = 0; i < argsAllReduceOps.size(); i++) {
+    for (long unsigned int i = 0; i < (*argsAllReduceOps).size(); i++) {
         string opMPI;
-        if (strcmp(argsAllReduceOps.at(i), "+") == 0) {
+        if (strcmp((*argsAllReduceOps).at(i), "+") == 0) {
             opMPI = "MPI_SUM";
         }
-        else if (strcmp(argsReduceOps.at(i), "*") == 0) {
+        else if (strcmp((*argsAllReduceOps).at(i), "*") == 0) {
             opMPI = "MPI_PROD";
         }
-        else if (strcmp(argsReduceOps.at(i), "MAX") == 0) {
+        else if (strcmp((*argsAllReduceOps).at(i), "MAX") == 0) {
             opMPI = "MPI_MAX";
         }
-        else if (strcmp(argsReduceOps.at(i), "MIN") == 0) {
+        else if (strcmp((*argsAllReduceOps).at(i), "MIN") == 0) {
             opMPI = "MPI_MIN";
         }
-        else if (strcmp(argsReduceOps.at(i), "&") == 0) {
+        else if (strcmp((*argsAllReduceOps).at(i), "&") == 0) {
             opMPI = "MPI_LAND";
         }
-        else if (strcmp(argsReduceOps.at(i), "|") == 0) {
+        else if (strcmp((*argsAllReduceOps).at(i), "|") == 0) {
             opMPI = "MPI_LOR";
         }
-        else if (strcmp(argsReduceOps.at(i), "^") == 0) {
+        else if (strcmp((*argsAllReduceOps).at(i), "^") == 0) {
             opMPI = "MPI_LXOR";
         }
         else {
@@ -753,48 +836,64 @@ void calcularAllReduceFinal() {
             exit(20);
         }
 
-        SymbolInfo *infoVar = table.getSymbolInfo(argsAllReduceVars.at(i));
-        std::string toUpper;
-        std::string toLower;
-        toUpper += infoVar->getVariableType();
-        toLower += infoVar->getVariableType();
+        for (long unsigned int varIt = 0; varIt < (*argsAllReduceVars).at(i).size(); varIt++) {
+            SymbolInfo *infoVar = table.getSymbolInfo((*argsAllReduceVars).at(i).at(varIt));
+            std::string toUpper;
+            std::string toLower;
+            toUpper += infoVar->getVariableType();
+            toLower += infoVar->getVariableType();
 
-        for (long unsigned int j = 0; j < infoVar->getVariableType().size(); j++) {
-            toUpper.at(j) = toupper(infoVar->getVariableType().at(j));
-            toLower.at(j) = tolower(infoVar->getVariableType().at(j));
+            for (long unsigned int j = 0; j < infoVar->getVariableType().size(); j++) {
+                toUpper.at(j) = toupper(infoVar->getVariableType().at(j));
+                toLower.at(j) = tolower(infoVar->getVariableType().at(j));
+            }
+
+            finalReduce += (toLower + " __" + (*argsAllReduceVars).at(i).at(varIt) + ";\n");
+
+            finalReduce = finalReduce + "MPI_Allreduce(&" + (*argsAllReduceVars).at(i).at(varIt) + ", &__" + (*argsAllReduceVars).at(i).at(varIt) + ", 1, " + translateTypes(toUpper) +
+             ", " + opMPI + ", MPI_COMM_WORLD);\n";
+
+            finalReduce = finalReduce + (*argsAllReduceVars).at(i).at(varIt) + " = __" + (*argsAllReduceVars).at(i).at(varIt) + ";\n";
         }
-
-        finalReduce += (toLower + " __" + argsAllReduceVars.at(i) + ";\n");
-            
-        finalReduce = finalReduce + "MPI_Allreduce(&" + argsAllReduceVars.at(i) + ", &__" + argsAllReduceVars.at(i) + ", 1, " + translateTypes(toUpper) +
-         ", " + opMPI + ", MPI_COMM_WORLD);\n";
-
-        finalReduce = finalReduce + argsAllReduceVars.at(i) + " = __" + argsAllReduceVars.at(i) + ";\n";
     }
 
     output << finalReduce << endl;
 
-    argsAllReduceOps.clear();
-    argsAllReduceVars.clear();
+    (*argsAllReduceOps).clear();
+    (*argsAllReduceVars).clear();
 }
 
-string construirReductionDist() {
+string construirReductionDist(int it) {
     string reduccion = " reduction(";
 
-    for (long unsigned int i = 0; i < argsReduceOps.size(); i++) {
-        if (i != 0) {
-            reduccion += ", ";
-        }
-        reduccion += argsReduceOps.at(i);
-    }
+    reduccion += argsReduceOpsDistribute.at(it);
 
     reduccion += ":";
 
-    for (long unsigned int i = 0; i < argsReduceVars.size(); i++) {
+    for (long unsigned int i = 0; i < argsReduceVarsDistribute.at(it).size(); i++) {
         if (i != 0) {
             reduccion += ", ";
         }
-        reduccion += argsReduceVars.at(i);
+        reduccion += argsReduceVarsDistribute.at(it).at(i);
+    }
+
+    reduccion += ")";
+
+    return reduccion;
+}
+
+string construirAllReductionDist(int it) {
+    string reduccion = " reduction(";
+
+    reduccion += argsAllReduceOpsDistribute.at(it);
+
+    reduccion += ":";
+
+    for (long unsigned int i = 0; i < argsAllReduceVarsDistribute.at(it).size(); i++) {
+        if (i != 0) {
+            reduccion += ", ";
+        }
+        reduccion += argsAllReduceVarsDistribute.at(it).at(i);
     }
 
     reduccion += ")";
@@ -803,11 +902,104 @@ string construirReductionDist() {
 }
 
 void GatherConChunk(std::vector<const char *> argsG) {
-    output << "CON CHUNKKKKK" << endl;
+    std::vector<std::string> vals = extractValues(argsG.at(0));
+    std::string chunk = argsG.at(1);
+
+    SymbolInfo *infoVar = table.getSymbolInfo(vals.at(0));
+
+    string mult = "";
+
+    for (long unsigned int i = 2; i < vals.size(); i++) {
+        mult += "*";
+        mult += vals.at(i);
+    }
+
+    string gather =
+        "{\n\tint __offset = 0;\n\tint *__displs = (int *) malloc(sizeof(int) * __numprocs);\n\tint *__counts = (int *) malloc(sizeof(int) * __numprocs);\n\n\twhile (__offset < " +
+        vals.at(1) + mult + ") {\n" +
+        "\t\tif (__taskid == 0) {\n" +
+        "\t\t\tfor (int __gather = 0; __gather < __numprocs; __gather++) {\n" +
+        "\t\t\t\tif (__offset < " + vals.at(1) + mult + ") {\n" +
+        "\t\t\t\t\t__counts[__gather] = " + chunk + ";\n" +
+        "\t\t\t\t\t__displs[__gather] = __offset;\n" +
+        "\t\t\t\t\t__offset += " + chunk + ";\n" +
+        "\t\t\t\t}\n" +
+        "\t\t\t\telse {\n" +
+        "\t\t\t\t\t__counts[__gather] = 0;\n" +
+        "\t\t\t\t\t__displs[__gather] = " + vals.at(1) + mult + ";\n" +
+        "\t\t\t\t}\n" +
+        "\t\t\t}\n" +
+        "\t\t}\n" +
+        "\t\telse {\n" +
+        "\t\t\tif (__offset + __taskid*" + chunk + " < " + vals.at(1) + mult + ") {\n" +
+        "\t\t\t\t__counts[__taskid] = " + chunk + ";\n" +
+        "\t\t\t\t__displs[__taskid] = __offset + __taskid*" + chunk + ";\n" +
+        "\t\t\t\t__offset += __numprocs*" + chunk + ";\n" +
+        "\t\t\t}\n" +
+        "\t\t\telse {\n" +
+        "\t\t\t\t__counts[__taskid] = 0;\n" +
+        "\t\t\t\t__displs[__taskid] = " + vals.at(1) + mult + ";\n" +
+        "\t\t\t\t__offset += __numprocs*" + chunk + ";\n" +
+        "\t\t\t}\n" +
+        "\t\t}\n\n" +
+        "\t\tMPI_Gatherv(" + vals.at(0) + "+__displs[__taskid], __counts[__taskid], " + translateTypes(infoVar->getVariableType()) +
+        ", " + vals.at(0) + ", __counts, __displs, " + translateTypes(infoVar->getVariableType()) + ", 0, MPI_COMM_WORLD);\n" +
+        "\t}\n" +
+        "}\n";
+
+    output << gather << endl;
 }
 
 void GatherSinChunk(std::vector<const char *> argsG) {
-    output << "SIN CHUNKKKKK" << endl;
+    std::vector<std::string> vals = extractValues(std::string(argsG.at(0)));
+
+    SymbolInfo *infoVar = table.getSymbolInfo(vals.at(0));
+
+    string mult = "";
+
+    for (long unsigned int i = 2; i < vals.size(); i++) {
+        mult += "*";
+        mult += vals.at(i);
+    }
+
+    string gather =
+        "{\n\tint __chunk;\n\tint *__displs = (int *) malloc(sizeof(int) * __numprocs);\n\tint *__counts = (int *) malloc(sizeof(int) * __numprocs);\n\t__chunk = (" +
+        vals.at(1) + " / __numprocs);\n" +
+        "\t__displs[__taskid] = __chunk*__taskid" + mult + ";\n\n" +
+
+        "\tif (__taskid < (" + vals.at(1) + " % __numprocs)) {\n" +
+        "\t\t__counts[__taskid] = (__chunk + 1)" + mult + ";\n" +
+        "\t\t__displs[__taskid] += __taskid" + mult + ";\n" +
+        "\t}\n" +
+        "\telse {\n" +
+        "\t\t__counts[__taskid] = __chunk" + mult + ";\n" +
+        "\t\t__displs[__taskid] += (" + vals.at(1) + " % __numprocs)" + mult + ";\n" +
+        "\t}\n\n" +
+
+        "\tif (__taskid == 0) {\n" +
+        "\t\t__displs[0] = 0;\n\n" +
+        "\t\tfor (int __gather = 1; __gather < __numprocs; __gather++) {\n" +
+        "\t\t\tif (__gather < (" + vals.at(1) + " % __numprocs)) {\n" +
+        "\t\t\t\t__counts[__gather] = (__chunk + 1)" + mult + ";\n" +
+        "\t\t\t\t__displs[__gather] = __displs[__gather - 1] + (__chunk + 1)" + mult + ";\n" +
+        "\t\t\t}\n" +
+        "\t\t\telse if (__gather == (" + vals.at(1) + " % __numprocs)) {\n" +
+        "\t\t\t\t__counts[__gather] = __chunk" + mult + ";\n" +
+        "\t\t\t\t__displs[__gather] = __displs[__gather - 1] + (__chunk + 1)" + mult + ";\n" +
+        "\t\t\t}\n" +
+        "\t\t\telse {\n" +
+        "\t\t\t\t__counts[__gather] = __chunk" + mult + ";\n" +
+        "\t\t\t\t__displs[__gather] = __displs[__gather - 1] + __chunk" + mult + ";\n" +
+        "\t\t\t}\n" +
+        "\t\t}\n\n" +
+        "\t\tassert((__displs[__numprocs - 1] + counts[__numprocs - 1]) == " + vals.at(1) + mult + ");\n" +
+        "\t}\n\n" +
+
+        "\tMPI_Gatherv(" + vals.at(0) + "+__displs[__taskid], counts[__taskid], " + translateTypes(infoVar->getVariableType()) +
+        ", " + vals.at(0) + ", __counts, __displs, " + translateTypes(infoVar->getVariableType()) + ", 0, MPI_COMM_WORLD);\n" +
+        "}\n";
+
+    output << gather << endl;
 }
 
 void MPIGather() {
@@ -819,7 +1011,123 @@ void MPIGather() {
             GatherConChunk(argsGather.at(i));
         }
         else {
-            fprintf(stderr, "Numero de argumentos de gather incorrectos\n");
+            fprintf(stderr, "Numero de argumentos de gather incorrectos, se tienen: %d\n", argsGather.at(i).size());
+            exit(210);
+        }
+    }
+}
+
+void AllGatherConChunk(std::vector<const char *> argsG) {
+    std::vector<std::string> vals = extractValues(argsG.at(0));
+    std::string chunk = argsG.at(1);
+
+    SymbolInfo *infoVar = table.getSymbolInfo(vals.at(0));
+
+    string mult = "";
+
+    for (long unsigned int i = 2; i < vals.size(); i++) {
+        mult += "*";
+        mult += vals.at(i);
+    }
+
+    string gather =
+        "{\n\tint __offset = 0;\n\tint *__displs = (int *) malloc(sizeof(int) * __numprocs);\n\tint *__counts = (int *) malloc(sizeof(int) * __numprocs);\n\n\twhile (__offset < " +
+        vals.at(1) + mult + ") {\n" +
+        "\t\tif (__taskid == 0) {\n" +
+        "\t\t\tfor (int __gather = 0; __gather < __numprocs; __gather++) {\n" +
+        "\t\t\t\tif (__offset < " + vals.at(1) + mult + ") {\n" +
+        "\t\t\t\t\t__counts[__gather] = " + chunk + ";\n" +
+        "\t\t\t\t\t__displs[__gather] = __offset;\n" +
+        "\t\t\t\t\t__offset += " + chunk + ";\n" +
+        "\t\t\t\t}\n" +
+        "\t\t\t\telse {\n" +
+        "\t\t\t\t\t__counts[__gather] = 0;\n" +
+        "\t\t\t\t\t__displs[__gather] = " + vals.at(1) + mult + ";\n" +
+        "\t\t\t\t}\n" +
+        "\t\t\t}\n" +
+        "\t\t}\n" +
+        "\t\telse {\n" +
+        "\t\t\tif (__offset + __taskid*" + chunk + " < " + vals.at(1) + mult + ") {\n" +
+        "\t\t\t\t__counts[__taskid] = " + chunk + ";\n" +
+        "\t\t\t\t__displs[__taskid] = __offset + __taskid*" + chunk + ";\n" +
+        "\t\t\t\t__offset += __numprocs*" + chunk + ";\n" +
+        "\t\t\t}\n" +
+        "\t\t\telse {\n" +
+        "\t\t\t\t__counts[__taskid] = 0;\n" +
+        "\t\t\t\t__displs[__taskid] = " + vals.at(1) + mult + ";\n" +
+        "\t\t\t\t__offset += __numprocs*" + chunk + ";\n" +
+        "\t\t\t}\n" +
+        "\t\t}\n\n" +
+        "\t\tMPI_Gatherv(" + vals.at(0) + "+__displs[__taskid], __counts[__taskid], " + translateTypes(infoVar->getVariableType()) +
+        ", " + vals.at(0) + ", __counts, __displs, " + translateTypes(infoVar->getVariableType()) + ", 0, MPI_COMM_WORLD);\n" +
+        "\t}\n" +
+        "}\n";
+
+    output << gather << endl;
+}
+
+void AllGatherSinChunk(std::vector<const char *> argsG) {
+    std::vector<std::string> vals = extractValues(std::string(argsG.at(0)));
+
+    SymbolInfo *infoVar = table.getSymbolInfo(vals.at(0));
+
+    string mult = "";
+
+    for (long unsigned int i = 2; i < vals.size(); i++) {
+        mult += "*";
+        mult += vals.at(i);
+    }
+
+    string gather =
+        "{\n\tint __chunk;\n\tint *__displs = (int *) malloc(sizeof(int) * __numprocs);\n\tint *__counts = (int *) malloc(sizeof(int) * __numprocs);\n\t__chunk = (" +
+        vals.at(1) + " / __numprocs);\n" +
+        "\t__displs[__taskid] = __chunk*__taskid" + mult + ";\n\n" +
+
+        "\tif (__taskid < (" + vals.at(1) + " % __numprocs)) {\n" +
+        "\t\t__counts[__taskid] = (__chunk + 1)" + mult + ";\n" +
+        "\t\t__displs[__taskid] += __taskid" + mult + ";\n" +
+        "\t}\n" +
+        "\telse {\n" +
+        "\t\t__counts[__taskid] = __chunk" + mult + ";\n" +
+        "\t\t__displs[__taskid] += (" + vals.at(1) + " % __numprocs)" + mult + ";\n" +
+        "\t}\n\n" +
+
+        "\tif (__taskid == 0) {\n" +
+        "\t\t__displs[0] = 0;\n\n" +
+        "\t\tfor (int __gather = 1; __gather < __numprocs; __gather++) {\n" +
+        "\t\t\tif (__gather < (" + vals.at(1) + " % __numprocs)) {\n" +
+        "\t\t\t\t__counts[__gather] = (__chunk + 1)" + mult + ";\n" +
+        "\t\t\t\t__displs[__gather] = __displs[__gather - 1] + (__chunk + 1)" + mult + ";\n" +
+        "\t\t\t}\n" +
+        "\t\t\telse if (__gather == (" + vals.at(1) + " % __numprocs)) {\n" +
+        "\t\t\t\t__counts[__gather] = __chunk" + mult + ";\n" +
+        "\t\t\t\t__displs[__gather] = __displs[__gather - 1] + (__chunk + 1)" + mult + ";\n" +
+        "\t\t\t}\n" +
+        "\t\t\telse {\n" +
+        "\t\t\t\t__counts[__gather] = __chunk" + mult + ";\n" +
+        "\t\t\t\t__displs[__gather] = __displs[__gather - 1] + __chunk" + mult + ";\n" +
+        "\t\t\t}\n" +
+        "\t\t}\n\n" +
+        "\t\tassert((__displs[__numprocs - 1] + counts[__numprocs - 1]) == " + vals.at(1) + mult + ");\n" +
+        "\t}\n\n" +
+
+        "\tMPI_Gatherv(" + vals.at(0) + "+__displs[__taskid], counts[__taskid], " + translateTypes(infoVar->getVariableType()) +
+        ", " + vals.at(0) + ", __counts, __displs, " + translateTypes(infoVar->getVariableType()) + ", 0, MPI_COMM_WORLD);\n" +
+        "}\n";
+
+    output << gather << endl;
+}
+
+void MPIAllGather() {
+    for (int i = 0; i < argsGather.size(); i++) {
+        if (argsGather.at(i).size() == 1) {
+            AllGatherSinChunk(argsGather.at(i));
+        }
+        else if (argsGather.at(i).size() == 2) {
+            AllGatherConChunk(argsGather.at(i));
+        }
+        else {
+            fprintf(stderr, "Numero de argumentos de gather incorrectos, se tienen: %d\n", argsGather.at(i).size());
             exit(210);
         }
     }

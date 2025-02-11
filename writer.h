@@ -31,13 +31,18 @@ extern int enReductionCluster;
 extern int enReductionDistribute;
 extern int enAllReductionCluster;
 extern int enAllReductionDistribute;
+extern int enScatter;
+extern int enGather;
+extern int enAllGather;
 
 extern void MPIEmpezarSecuencial();
 extern void finSecuencial();
 extern void MPITaskEnd();
 extern void MPIDistribute(string ini, string fin);
-extern void calcularReduceFinal();
-extern void calcularAllReduceFinal();
+extern void calcularReduceFinal(bool cluster);
+extern void calcularAllReduceFinal(bool cluster);
+extern void MPIGather();
+extern void MPIAllGather();
 
 void calcularDistribute(string *ini, string *fin, char **linea);
 bool comprobarLlavesCluster(char *linea);
@@ -145,12 +150,20 @@ void updateText() {
         //Si se han leido el mismo numero de llaves de apertura que de cierre estando en cluster y estos dos son mayor que 0, entonces se cierra el cluster
         if (enCluster && n_llaves == -100) {
             if (enReductionCluster) {
-                calcularReduceFinal();
+                calcularReduceFinal(true);
                 enReductionCluster = 0;
             }
             if (enAllReductionCluster) {
-                calcularAllReduceFinal();
+                calcularAllReduceFinal(true);
                 enAllReductionCluster = 0;
+            }
+            if (enGather) {
+                MPIGather();
+                enGather = 0;
+            }
+            if (enAllGather) {
+                MPIAllGather();
+                enAllGather = 0;
             }
             MPIEmpezarSecuencial();
             enCluster = 0;
@@ -158,11 +171,11 @@ void updateText() {
         //Si se han leido el mismo numero de llaves de apertura que de cierre estando en distribute y estos dos son mayor que 0, entonces se cierra el distribute
         if (enDistribute && dist_n_llaves == -100) {
             if (enReductionDistribute) {
-                calcularReduceFinal();
+                calcularReduceFinal(false);
                 enReductionCluster = 0;
             }
             if (enAllReductionDistribute) {
-                calcularAllReduceFinal();
+                calcularAllReduceFinal(false);
                 enAllReductionCluster = 0;
             }
             enDistribute = 0;

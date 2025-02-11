@@ -13,6 +13,7 @@ Debug: DOUBLE Debug: PI25DT Debug:
 Debug: DOUBLE Debug: x Debug: 
 Debug: DOUBLE Debug: sum Debug: 
 Debug: INT Debug: factor Debug: 
+Debug: INT Debug: valores Debug: 
 Inserted: timeval in scope 1.2
 Debug: STRUCT Debug: t1 Debug: 
 Debug: STRUCT Debug: t2 Debug: 

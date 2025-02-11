@@ -12,6 +12,7 @@ int main_end = 0;
 int MPIInitDone = 0;
 long posInit = -100;
 long posVarsInit = -100;
+int enMain = 0;
 
 extern ofstream logFile;
 extern ofstream errFile;
@@ -640,9 +641,21 @@ labeled_statement
 
 compound_statement
 	: '{' '}'
-	| '{' 
+	| '{' {
+			if (enMain > 0) {
+				enMain++;
+			}
+		}
 	block_item_list  
-	'}'
+	'}' {
+			if (enMain == 2 && MPIInitDone == 1 && main_end == 1) {
+				MPIFinalize();
+				main_end = 0;
+			}
+			else if (enMain > 0) {
+				enMain--;
+			}
+		}
 	;
 
 block_item_list
@@ -736,9 +749,15 @@ function_definition
     //     logFile << "Debug Simbol: " << symbol->getSymbolName() << "\n";
     // }
 		table.getSymbolInfo($2->getSymbolName())->setParamList($4);
+		if($2->getSymbolName() == "main"){
+			enMain = 1;
+		}
 	} compound_statement {
 		$2->setIsDefined(true);
-		table.exitScope(); 
+		table.exitScope();
+		if($2->getSymbolName() == "main"){
+			enMain = 0;
+		}
 	}
 	| declaration_specifiers declarator {
 		$2->setIsFunction(true);
@@ -768,9 +787,15 @@ function_definition
 				}
 			}
 		}
+		if($2->getSymbolName() == "main"){
+			enMain = 1;
+		}
 	} compound_statement {
 		$2->setIsDefined(true);
 		table.exitScope();
+		if($2->getSymbolName() == "main"){
+			enMain = 0;
+		}
 	}
 	;
 

@@ -19,7 +19,8 @@ extern ofstream output;
 extern void parseOpenMP(const char* _input, void * _exprParse(const char*));
 extern void yyerror(const char *);
 extern void MPIEmpezarSecuencial();
-extern string construirReductionDist();
+extern string construirReductionDist(int it);
+extern string construirAllReductionDist(int it);
 
 static void count(void);
 static void comment(void);
@@ -40,6 +41,8 @@ extern int dist_n_llaves;
 extern int enFor;
 extern string DeclareTypes;
 extern int MPIInitDone;
+extern std::vector<const char *> argsReduceOpsDistribute;
+extern std::vector<const char *> argsAllReduceOpsDistribute;
 
 using namespace std;
 
@@ -57,14 +60,24 @@ extern int error_count;
                 char * pragma = strstr(line, "pragma");
                 if (pragma != NULL) {
                     parseOpenMP(pragma+7, NULL);
+					char *red = strstr(line, "reduction");
 
 					if (strstr(line, "cluster") == NULL) {
 						if (enDistribute && enFor == 0) {
 							guardarLineasDist += '#';
 							guardarLineasDist += line;
 
-							if (enReductionDistribute && strstr(line, "reduction") == NULL && (strstr(line, "for") != NULL || strstr(line, "simd") != NULL)) {
-								guardarLineasDist += construirReductionDist();
+							if (red == NULL && (strstr(line, "for") != NULL || strstr(line, "simd") != NULL)) {
+								if (enReductionDistribute) {
+									for (long unsigned int i = 0; i < argsReduceOpsDistribute.size(); i++) {
+										guardarLineasDist += construirReductionDist(i);
+									}
+								}
+								if (enAllReductionDistribute) {
+									for (long unsigned int i = 0; i < argsAllReduceOpsDistribute.size(); i++) {
+										guardarLineasDist += construirAllReductionDist(i);
+									}
+								}
 							}
 
 							guardarLineasDist += '\n';
@@ -72,8 +85,17 @@ extern int error_count;
 						else {
 							output << "	#" << line;
 
-							if (enReductionDistribute && strstr(line, "reduction") == NULL && (strstr(line, "for") != NULL || strstr(line, "simd") != NULL)) {
-								output << construirReductionDist();
+							if (red == NULL && (strstr(line, "for") != NULL || strstr(line, "simd") != NULL)) {
+								if (enReductionDistribute) {
+									for (long unsigned int i = 0; i < argsReduceOpsDistribute.size(); i++) {
+										output << construirReductionDist(i);
+									}
+								}
+								if (enAllReductionDistribute) {
+									for (long unsigned int i = 0; i < argsAllReduceOpsDistribute.size(); i++) {
+										output << construirAllReductionDist(i);
+									}
+								}
 							}
 
 							output << endl;

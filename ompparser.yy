@@ -51,11 +51,10 @@ int enReductionDistribute = 0;
 int enAllReductionCluster = 0;
 int enAllReductionDistribute = 0;
 int enScatter = 0;
-int enGatherCluster = 0;
-int enGatherDistribute = 0;
-int enAllGatherCluster = 0;
-int enAllGatherDistribute = 0;
+int enGather = 0;
+int enAllGather = 0;
 int n_llaves = -100;
+int chunk_pos;
 extern int dist_n_llaves;
 
 void * (*exprParse)(const char*) = NULL;
@@ -69,8 +68,16 @@ extern void MPITask();
 extern void MPIScatterHalo();
 extern void MPIUpdateHalo();
 extern void MPIWriteCluster();
-extern void MPI_Reduce(bool vars, const char *arg);
-extern void MPI_AllReduce(bool vars, const char *arg);
+extern void addReduce(bool vars, const char *arg);
+extern void addAllReduce(bool vars, const char *arg);
+extern void aumentarScatter();
+extern void aumentarGather();
+extern void aumentarAllGather();
+extern void addArgScatter(const char *arg);
+extern void addArgGather(const char *arg);
+extern void addArgAllGather(const char *arg);
+extern void aumentarAllReduction();
+extern void aumentarReduction();
 
 %}
 
@@ -147,36 +154,62 @@ var_list_cluster : variable {
                     }
         ;
 
-var_list_reduction : variable { if(enReductionCluster || enReductionDistribute){MPI_Reduce(true, $1);}}
-        | var_list_reduction ',' variable { if(enReductionCluster || enReductionDistribute){MPI_Reduce(true, $3);}}
+var_list_reduction : variable { if(enReductionCluster || enReductionDistribute){addReduce(true, $1);}}
+        | var_list_reduction ',' variable { if(enReductionCluster || enReductionDistribute){addReduce(true, $3);}}
         ;
 
-var_list_allreduction : variable { if(enAllReductionCluster || enAllReductionDistribute){MPI_AllReduce(true, $1);}}
-        | var_list_allreduction ',' variable { if(enAllReductionCluster || enAllReductionDistribute){MPI_AllReduce(true, $3);}}
+var_list_allreduction : variable { if(enAllReductionCluster || enAllReductionDistribute){addAllReduce(true, $1);}}
+        | var_list_allreduction ',' variable { if(enAllReductionCluster || enAllReductionDistribute){addAllReduce(true, $3);}}
         ;
 
 var_chunk : variable ':' CHUNK '(' variable ')'
                   ;
-		
-var_chunk_cluster : variable ':' CHUNK '(' variable ')'
-            {
-              chunk = 1;
-              printf("var1: %s\n", $1);
-              addArg($1);
-              printf("var2: %s\n", $5);
-              addArg($5);
-            }
-		  ;
-		  
-var_chunk_list : var_chunk
-			   | var_chunk ',' var_chunk_list
-			   | var_list
-			   ;
 
-var_chunk_list_cluster : var_chunk_cluster
-                        | var_chunk_cluster ',' var_chunk_list_cluster
-                        | var_list_cluster
-                        ;
+var_chunk_list_cluster_aux_aux :  /*empty*/
+                                | ',' 
+                                    {
+                                      chunk_pos += 1;
+                                      if (enScatter) {
+                                        aumentarScatter();
+                                      }
+                                      else if (enGather) {
+                                        aumentarGather();
+                                      }
+                                      else if (enAllGather) {
+                                        aumentarAllGather();
+                                      }
+                                    } var_chunk_list_cluster
+                                ;
+
+var_chunk_list_cluster_aux :  var_chunk_list_cluster_aux_aux
+                            | ':' CHUNK '(' variable ')'
+                                {
+                                  if (enScatter) {
+                                    addArgScatter($4);
+                                  }
+                                  else if (enGather) {
+                                    addArgGather($4);
+                                  }
+                                  else if (enAllGather) {
+                                    addArgAllGather($4);
+                                  }
+                                }
+                              var_chunk_list_cluster_aux_aux
+                            ;
+
+var_chunk_list_cluster : variable 
+                          {
+                            if (enScatter) {
+                              addArgScatter($1);
+                            }
+                            else if (enGather) {
+                              addArgGather($1);
+                            }
+                            else if (enAllGather) {
+                              addArgAllGather($1);
+                            }
+                          }
+                        var_chunk_list_cluster_aux
 
 openmp_directive : parallel_directive
                  | metadirective_directive
@@ -288,8 +321,8 @@ directiveAuxCluster
 				          | cluster_data_directive
 				          | cluster_update_directive
 				          | cluster_teams_directive
-				          | cluster_distribute_directive {enDistribute = 1; dist_n_llaves = 0;}
-				          | cluster_teams_distribute_directive {enDistribute = 1; dist_n_llaves = 0;}
+				          | cluster_distribute_directive {dist_n_llaves = 0;}
+				          | cluster_teams_distribute_directive {dist_n_llaves = 0;}
 				          | cluster_teams_master_directive
 				          | task_async_directive
                   ;
@@ -527,10 +560,10 @@ cluster_update_directive : CLUSTER UPDATE { update =1; } cluster_update_clause_o
 cluster_teams_directive : CLUSTER TEAMS { } cluster_teams_clause_optseq
 			;
 
-cluster_distribute_directive : CLUSTER DISTRIBUTE cluster_distribute_clause_optseq
+cluster_distribute_directive : CLUSTER DISTRIBUTE {enDistribute = 1;} cluster_distribute_clause_optseq
 			     ;
 
-cluster_teams_distribute_directive : CLUSTER TEAMS DISTRIBUTE cluster_teams_distribute_clause_optseq
+cluster_teams_distribute_directive : CLUSTER TEAMS DISTRIBUTE {enDistribute = 1;} cluster_teams_distribute_clause_optseq
 				   ;
 				   
 cluster_teams_master_directive : CLUSTER TEAMS MASTER { } 
@@ -2435,9 +2468,9 @@ parallel_clause : if_parallel_clause
 				
 cluster_clause : alloc_clause
 			   | broad_clause
-			   | scatter_clause
-			   | gather_clause
-			   | allgather_clause
+			   | {enScatter = 1; chunk_pos = 0; aumentarScatter();} scatter_clause {enScatter = 0;}
+			   | {enGather = 1; chunk_pos = 0; aumentarGather();} gather_clause
+			   | {enAllGather = 1; chunk_pos = 0; aumentarAllGather();} allgather_clause
 			   | halo_clause
 			   | {enReductionCluster = 1;} reduction_clause_cluster
 			   | {enAllReductionCluster = 1;} allreduction_clause_cluster
@@ -3144,9 +3177,9 @@ halo_clause : HALO { } '(' var_chunk ')'
 		}
 	} ; 
 			   
-gather_clause : GATHER { } '(' var_chunk_list ')' ;
+gather_clause : GATHER { } '(' var_chunk_list_cluster ')' ;
 			  
-allgather_clause : ALLGATHER { } '(' var_chunk_list ')' ;
+allgather_clause : ALLGATHER { } '(' var_chunk_list_cluster ')' ;
 
 allreduction_clause : ALLREDUCTION { } '(' reduction_parameter ':' var_list ')' ;
 
@@ -3290,10 +3323,10 @@ reduction_clause : REDUCTION { } '(' reduction_parameter ':' var_list ')' {
                  }
                  ;
 
-reduction_clause_cluster : REDUCTION { } '(' reduction_parameter_cluster ':' var_list_reduction ')'
+reduction_clause_cluster : REDUCTION { aumentarReduction(); } '(' reduction_parameter_cluster ':' var_list_reduction ')'
                          ;
 
-allreduction_clause_cluster : ALLREDUCTION { } '(' allreduction_parameter_cluster ':' var_list_allreduction ')'
+allreduction_clause_cluster : ALLREDUCTION { aumentarAllReduction(); } '(' allreduction_parameter_cluster ':' var_list_allreduction ')'
                             ;
 
 allreduction_parameter_cluster : allreduction_identifier_cluster
@@ -3303,11 +3336,11 @@ reduction_parameter_cluster : reduction_identifier_cluster
                             | reduction_modifier ',' reduction_identifier_cluster
                             ;
 
-allreduction_identifier_cluster : reduction_enum_identifier { if(enAllReductionCluster || enAllReductionDistribute){MPI_AllReduce(false, $1);}}
+allreduction_identifier_cluster : reduction_enum_identifier { if(enAllReductionCluster || enAllReductionDistribute){addAllReduce(false, $1);}}
                                 | EXPR_STRING { }
                                 ;
                     
-reduction_identifier_cluster : reduction_enum_identifier { if(enReductionCluster || enReductionDistribute){MPI_Reduce(false, $1);}}
+reduction_identifier_cluster : reduction_enum_identifier { if(enReductionCluster || enReductionDistribute){addReduce(false, $1);}}
                               | EXPR_STRING { }
                               ;
 
