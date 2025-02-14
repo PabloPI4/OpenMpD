@@ -24,7 +24,11 @@ std::vector<const char *> argsReduceOpsDistribute;
 std::vector<std::vector<const char *>> argsReduceVarsDistribute;
 std::vector<const char *> argsAllReduceOpsDistribute;
 std::vector<std::vector<const char *>> argsAllReduceVarsDistribute;
+
 string DeclareTypes = "void DeclareTypesMPI() {\n";
+
+std::vector<std::string> varsReduceConstruir;
+std::vector<std::vector<std::string>> reduceConst;
 
 extern ofstream output, errFile;
 
@@ -863,23 +867,150 @@ void calcularAllReduceFinal(bool cluster) {
     (*argsAllReduceVars).clear();
 }
 
-string construirReductionDist(int it) {
-    string reduccion = " reduction(";
-
-    reduccion += argsReduceOpsDistribute.at(it);
-
-    reduccion += ":";
-
-    for (long unsigned int i = 0; i < argsReduceVarsDistribute.at(it).size(); i++) {
-        if (i != 0) {
-            reduccion += ", ";
-        }
-        reduccion += argsReduceVarsDistribute.at(it).at(i);
+void ReducirReduceConstVariables() {
+    for (int i = 0; i < 7; i++) {
+        reduceConst.push_back({});
     }
 
-    reduccion += ")";
+    for (unsigned long int i = 0; i < varsReduceConstruir.size(); i++) {
+        string x = "";
+        string op;
+        int estado = 0;
+        reduceConst.push_back({});
+        int n = 0;
 
-    return reduccion;
+        for (unsigned long int j = 0; j < varsReduceConstruir.at(i).size(); j++) {
+            switch(estado) {
+                case 0: if (varsReduceConstruir.at(i).at(j) == ':') {estado = 1; continue;}
+                        op += varsReduceConstruir.at(i).at(j);
+                        break;
+                case 1: if (varsReduceConstruir.at(i).at(j) == ',') {
+                            if (op == "+") {
+                                reduceConst.at(0).push_back(x);
+                            }
+                            else if (op == "*") {
+                                reduceConst.at(1).push_back(x);
+                            }
+                            else if (op == "max") {
+                                reduceConst.at(2).push_back(x);
+                            }
+                            else if (op == "min") {
+                                reduceConst.at(3).push_back(x);
+                            }
+                            else if (op == "&") {
+                                reduceConst.at(4).push_back(x);
+                            }
+                            else if (op == "|") {
+                                reduceConst.at(5).push_back(x);
+                            }
+                            else if (op == "^") {
+                                reduceConst.at(6).push_back(x);
+                            }
+                            else {
+                                fprintf(stderr, "Operacion de reduction no valida\n");
+                                exit(20);
+                            }
+
+                            x = "";
+                            n++;
+                            continue;
+                        }
+
+                        x += varsReduceConstruir.at(i).at(j);
+                        
+                        if (j == varsReduceConstruir.at(i).size() - 1) {
+                            if (op == "+") {
+                                reduceConst.at(0).push_back(x);
+                            }
+                            else if (op == "*") {
+                                reduceConst.at(1).push_back(x);
+                            }
+                            else if (op == "max") {
+                                reduceConst.at(2).push_back(x);
+                            }
+                            else if (op == "min") {
+                                reduceConst.at(3).push_back(x);
+                            }
+                            else if (op == "&") {
+                                reduceConst.at(4).push_back(x);
+                            }
+                            else if (op == "|") {
+                                reduceConst.at(5).push_back(x);
+                            }
+                            else if (op == "^") {
+                                reduceConst.at(6).push_back(x);
+                            }
+                            else {
+                                fprintf(stderr, "Operacion de reduction no valida\n");
+                                exit(20);
+                            }
+                        }
+            }
+        }
+    }
+}
+
+string construirReductionDist(int it) {
+    string reduction = " reduction(";
+
+    reduction += aMinuscula(argsReduceOpsDistribute.at(it));
+
+    reduction += ":";
+
+    int op;
+    int n_escritos = 0;
+
+    for (unsigned long int i = 0; i < argsReduceVarsDistribute.at(it).size(); i++) {
+        if (strcmp(argsReduceOpsDistribute.at(it), "+") == 0) {
+            op = 0;
+        }
+        else if (strcmp(argsReduceOpsDistribute.at(it), "*") == 0) {
+            op = 1;
+        }
+        else if (strcmp(argsReduceOpsDistribute.at(it), "MAX") == 0) {
+            op = 2;
+        }
+        else if (strcmp(argsReduceOpsDistribute.at(it), "MIN") == 0) {
+            op = 3;
+        }
+        else if (strcmp(argsReduceOpsDistribute.at(it), "&") == 0) {
+            op = 4;
+        }
+        else if (strcmp(argsReduceOpsDistribute.at(it), "|") == 0) {
+            op = 5;
+        }
+        else if (strcmp(argsReduceOpsDistribute.at(it), "^") == 0) {
+            op = 6;
+        }
+        else {
+            fprintf(stderr, "Operacion de reduction no valida\n");
+            exit(20);
+        }
+
+        int esta = 0;
+        for (unsigned long int j = 0; j < reduceConst.at(op).size(); j++) {
+            if (strcmp(argsReduceVarsDistribute.at(it).at(i), reduceConst.at(op).at(j).data()) == 0) {
+                esta = 1;
+                break;
+            }
+        }
+
+        if (!esta) {
+            if (n_escritos > 0) {
+                reduction += ", ";
+            }
+            reduction += argsReduceVarsDistribute.at(it).at(i);
+            n_escritos++;
+        }
+    }
+
+    reduction += ")";
+
+    if (n_escritos == 0) {
+        reduction = "";
+    }
+
+    return reduction;
 }
 
 string construirAllReductionDist(int it) {
@@ -1003,7 +1134,7 @@ void GatherSinChunk(std::vector<const char *> argsG) {
 }
 
 void MPIGather() {
-    for (int i = 0; i < argsGather.size(); i++) {
+    for (unsigned long int i = 0; i < argsGather.size(); i++) {
         if (argsGather.at(i).size() == 1) {
             GatherSinChunk(argsGather.at(i));
         }
@@ -1011,7 +1142,7 @@ void MPIGather() {
             GatherConChunk(argsGather.at(i));
         }
         else {
-            fprintf(stderr, "Numero de argumentos de gather incorrectos, se tienen: %d\n", argsGather.at(i).size());
+            fprintf(stderr, "Numero de argumentos de gather incorrectos, se tienen: %ld\n", argsGather.at(i).size());
             exit(210);
         }
     }
@@ -1119,15 +1250,15 @@ void AllGatherSinChunk(std::vector<const char *> argsG) {
 }
 
 void MPIAllGather() {
-    for (int i = 0; i < argsGather.size(); i++) {
-        if (argsGather.at(i).size() == 1) {
-            AllGatherSinChunk(argsGather.at(i));
+    for (unsigned long int i = 0; i < argsAllGather.size(); i++) {
+        if (argsAllGather.at(i).size() == 1) {
+            AllGatherSinChunk(argsAllGather.at(i));
         }
-        else if (argsGather.at(i).size() == 2) {
-            AllGatherConChunk(argsGather.at(i));
+        else if (argsAllGather.at(i).size() == 2) {
+            AllGatherConChunk(argsAllGather.at(i));
         }
         else {
-            fprintf(stderr, "Numero de argumentos de gather incorrectos, se tienen: %d\n", argsGather.at(i).size());
+            fprintf(stderr, "Numero de argumentos de gather incorrectos, se tienen: %ld\n", argsAllGather.at(i).size());
             exit(210);
         }
     }

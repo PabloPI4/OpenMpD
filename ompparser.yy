@@ -53,6 +53,8 @@ int enAllReductionDistribute = 0;
 int enScatter = 0;
 int enGather = 0;
 int enAllGather = 0;
+int enGatherInst = 0;
+int enAllGatherInst = 0;
 int n_llaves = -100;
 int chunk_pos;
 extern int dist_n_llaves;
@@ -172,10 +174,10 @@ var_chunk_list_cluster_aux_aux :  /*empty*/
                                       if (enScatter) {
                                         aumentarScatter();
                                       }
-                                      else if (enGather) {
+                                      else if (enGatherInst) {
                                         aumentarGather();
                                       }
-                                      else if (enAllGather) {
+                                      else if (enAllGatherInst) {
                                         aumentarAllGather();
                                       }
                                     } var_chunk_list_cluster
@@ -187,10 +189,10 @@ var_chunk_list_cluster_aux :  var_chunk_list_cluster_aux_aux
                                   if (enScatter) {
                                     addArgScatter($4);
                                   }
-                                  else if (enGather) {
+                                  else if (enGatherInst) {
                                     addArgGather($4);
                                   }
-                                  else if (enAllGather) {
+                                  else if (enAllGatherInst) {
                                     addArgAllGather($4);
                                   }
                                 }
@@ -202,10 +204,10 @@ var_chunk_list_cluster : variable
                             if (enScatter) {
                               addArgScatter($1);
                             }
-                            else if (enGather) {
+                            else if (enGatherInst) {
                               addArgGather($1);
                             }
-                            else if (enAllGather) {
+                            else if (enAllGatherInst) {
                               addArgAllGather($1);
                             }
                           }
@@ -2469,8 +2471,8 @@ parallel_clause : if_parallel_clause
 cluster_clause : alloc_clause
 			   | broad_clause
 			   | {enScatter = 1; chunk_pos = 0; aumentarScatter();} scatter_clause {enScatter = 0;}
-			   | {enGather = 1; chunk_pos = 0; aumentarGather();} gather_clause
-			   | {enAllGather = 1; chunk_pos = 0; aumentarAllGather();} allgather_clause
+			   | {enGather = 1; chunk_pos = 0; aumentarGather(); enGatherInst = 1;} gather_clause {enGatherInst = 0;}
+			   | {enAllGather = 1; chunk_pos = 0; aumentarAllGather(); enAllGatherInst = 1;} allgather_clause {enAllGatherInst = 0;}
 			   | halo_clause
 			   | {enReductionCluster = 1;} reduction_clause_cluster
 			   | {enAllReductionCluster = 1;} allreduction_clause_cluster

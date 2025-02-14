@@ -6,5 +6,5 @@ int main() {
 	a[i] = (int *) malloc(2 * sizeof(int));
     }
 
-    return 0;
+    #pragma omp cluster
 }

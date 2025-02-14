@@ -295,26 +295,26 @@ void calcularDistribute(string *ini, string *fin, char **linea) {
     if ((pointerInc = strstr(guardarInc, distVar)) == NULL) {
         (*linea) = (char *) realloc((*linea), 49 + operacion.size() + guardIncCont);
 
-        strncpy((*linea), "for (int __distrib = __start; __distrib ", 40);
+        strcpy((*linea), "for (int __distrib = __start; __distrib ");
         strncpy((*linea) + 40, operacion.data(), operacion.size());
-        strncpy((*linea) + 40 + operacion.size(), " __end; ", 8);
+        strcpy((*linea) + 40 + operacion.size(), " __end; ");
         strcpy((*linea) + 48 + operacion.size(), guardarInc);
     }
     else {
         (*linea) = (char *) realloc((*linea), 58 + operacion.size() + guardIncCont - strlen(distVar));
         
-        strncpy((*linea), "for (int __distrib = __start; __distrib ", 40);
+        strcpy((*linea), "for (int __distrib = __start; __distrib ");
         strncpy((*linea) + 40, operacion.data(), operacion.size());
-        strncpy((*linea) + 40 + operacion.size(), " __end; ", 8);
+        strcpy((*linea) + 40 + operacion.size(), " __end; ");
         strncpy((*linea) + 48 + operacion.size(), guardarInc, pointerInc - guardarInc);
-        strncpy((*linea) + 48 + operacion.size() + (pointerInc - guardarInc), "__distrib", 9);
+        strcpy((*linea) + 48 + operacion.size() + (pointerInc - guardarInc), "__distrib");
         strcpy((*linea) + 57 + operacion.size() + (pointerInc - guardarInc), pointerInc + strlen(distVar));
     }
 }
 
 //Esta funcion calcula si en la linea hay algún caracter diferente a espacio, tabulador y salto de linea
 bool comprobarLlavesCluster(char *linea) {
-    for (int i = 0; i < strlen(linea); i++) {
+    for (unsigned long int i = 0; i < strlen(linea); i++) {
         if (linea[i] != ' ' && linea[i] != '\t' && linea[i] != '\n') {
             return true;
         }

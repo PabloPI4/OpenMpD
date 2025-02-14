@@ -19,7 +19,7 @@ int main (int argc, char** argv) {
     double x;
     double sum=0.0;
     int factor=1;
-    int **valores;
+    int *valores;
 
     struct timeval t1, t2;
     double segundos;
@@ -40,10 +40,10 @@ gettimeofday(&t1, NULL);
 
 step = 1.0/(double) num_steps;
 
-#pragma omp cluster broad(num_steps, step) gather(valores[10][5]:chunk(2), valores[10][5])
+#pragma omp cluster broad(num_steps, step) allgather(valores[10][5], valores[10][5]:chunk(2))
 {
-#pragma omp cluster teams distribute allreduction(+:sum,sum)
-#pragma omp parallel for simd private(x)
+#pragma omp cluster teams distribute reduction(min:step) reduction(*:sum)
+#pragma omp parallel for simd private(x) reduction(*:step)
 for (i=0;i< num_steps; i++) {
     x = (i+0.5)*step;
     sum += 4.0/(1.0+x*x);

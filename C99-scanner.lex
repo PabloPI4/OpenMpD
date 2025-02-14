@@ -21,6 +21,7 @@ extern void yyerror(const char *);
 extern void MPIEmpezarSecuencial();
 extern string construirReductionDist(int it);
 extern string construirAllReductionDist(int it);
+extern void ReducirReduceConstVariables();
 
 static void count(void);
 static void comment(void);
@@ -43,6 +44,7 @@ extern string DeclareTypes;
 extern int MPIInitDone;
 extern std::vector<const char *> argsReduceOpsDistribute;
 extern std::vector<const char *> argsAllReduceOpsDistribute;
+extern std::vector<std::string> varsReduceConstruir;
 
 using namespace std;
 
@@ -60,20 +62,42 @@ extern int error_count;
                 char * pragma = strstr(line, "pragma");
                 if (pragma != NULL) {
                     parseOpenMP(pragma+7, NULL);
-					char *red = strstr(line, "reduction");
+					char *red;
+					char *busqueda = line;
+					string newRed;
 
 					if (strstr(line, "cluster") == NULL) {
 						if (enDistribute && enFor == 0) {
 							guardarLineasDist += '#';
 							guardarLineasDist += line;
 
-							if (red == NULL && (strstr(line, "for") != NULL || strstr(line, "simd") != NULL)) {
+							if ((strstr(line, "for") != NULL || strstr(line, "simd") != NULL)) {
 								if (enReductionDistribute) {
+									while ((red = strstr(busqueda, "reduction")) != NULL) {
+										newRed = "";
+										busqueda = red + 10;
+										while (*busqueda != ')') {
+											newRed += *busqueda;
+											busqueda++;
+										}
+										varsReduceConstruir.push_back(newRed);
+									}
+									ReducirReduceConstVariables();
 									for (long unsigned int i = 0; i < argsReduceOpsDistribute.size(); i++) {
 										guardarLineasDist += construirReductionDist(i);
 									}
 								}
 								if (enAllReductionDistribute) {
+									while ((red = strstr(busqueda, "reduction")) != NULL) {
+										newRed = "";
+										busqueda = red + 10;
+										while (*busqueda != ')') {
+											newRed += *busqueda;
+											busqueda++;
+										}
+										varsReduceConstruir.push_back(newRed);
+									}
+									ReducirReduceConstVariables();
 									for (long unsigned int i = 0; i < argsAllReduceOpsDistribute.size(); i++) {
 										guardarLineasDist += construirAllReductionDist(i);
 									}
@@ -85,13 +109,33 @@ extern int error_count;
 						else {
 							output << "	#" << line;
 
-							if (red == NULL && (strstr(line, "for") != NULL || strstr(line, "simd") != NULL)) {
+							if ((strstr(line, "for") != NULL || strstr(line, "simd") != NULL)) {
 								if (enReductionDistribute) {
+									while ((red = strstr(busqueda, "reduction")) != NULL) {
+										newRed = "";
+										busqueda = red + 10;
+										while (*busqueda != ')') {
+											newRed += *busqueda;
+											busqueda++;
+										}
+										varsReduceConstruir.push_back(newRed);
+									}
+									ReducirReduceConstVariables();
 									for (long unsigned int i = 0; i < argsReduceOpsDistribute.size(); i++) {
 										output << construirReductionDist(i);
 									}
 								}
 								if (enAllReductionDistribute) {
+									while ((red = strstr(busqueda, "reduction")) != NULL) {
+										newRed = "";
+										busqueda = red + 10;
+										while (*busqueda != ')') {
+											newRed += *busqueda;
+											busqueda++;
+										}
+										varsReduceConstruir.push_back(newRed);
+									}
+									ReducirReduceConstVariables();
 									for (long unsigned int i = 0; i < argsAllReduceOpsDistribute.size(); i++) {
 										output << construirAllReductionDist(i);
 									}
