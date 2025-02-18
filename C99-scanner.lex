@@ -22,6 +22,7 @@ extern void MPIEmpezarSecuencial();
 extern string construirReductionDist(int it);
 extern string construirAllReductionDist(int it);
 extern void ReducirReduceConstVariables();
+extern void lastLine();
 
 static void count(void);
 static void comment(void);
@@ -40,11 +41,11 @@ extern int enCluster;
 extern string guardarLineasDist;
 extern int dist_n_llaves;
 extern int enFor;
-extern string DeclareTypes;
 extern int MPIInitDone;
 extern std::vector<const char *> argsReduceOpsDistribute;
 extern std::vector<const char *> argsAllReduceOpsDistribute;
 extern std::vector<std::string> varsReduceConstruir;
+extern char *linea;
 
 using namespace std;
 
@@ -287,8 +288,12 @@ L?\"(\\.|[^\\"\n])*\"	{ count(); return(STRING_LITERAL); }
 
 int yywrap(void)
 {
-	if (MPIInitDone)
+	lastLine();
+	
+	if (MPIInitDone) {
 		output << endl << DeclareTypes << "}";
+	}
+
 	return 1;
 }
 

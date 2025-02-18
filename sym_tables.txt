@@ -1,30 +1,14 @@
+ScopeTable # 1.1.1
+
+ScopeTable # 1.1.2
+ 29 --> | < i , INT > |
+
+ScopeTable # 1.1.3
+ 29 --> | < i , INT > |
+
 ScopeTable # 1.1
-
-ScopeTable # 1.2.1.1
-
-ScopeTable # 1.2.1
-
-ScopeTable # 1.2.2
-
-ScopeTable # 1.2.3
-
-ScopeTable # 1.2
- 1 --> | < argc , INT > |
- 6 --> | < x , DOUBLE > |
- 7 --> | < pi , DOUBLE > |
  8 --> | < valores , Pointer Symbol , INT > |
- 18 --> | < segundos , DOUBLE > |
- 20 --> | < argv , Pointer Symbol , CHAR > |
- 24 --> | < PI25DT , DOUBLE > |
- 27 --> | < factor , INT > |
- 29 --> | < i , UNSIGNED_INT > || < sum , DOUBLE > |
- 30 --> | < timeval , Struct Symbol ,  ,  > |
- 33 --> | < t1 , STRUCT > |
- 34 --> | < t2 , STRUCT > |
 
 ScopeTable # 1
- 1 --> | < piHola , Function Symbol , VOID , Parameter List:  > |
- 10 --> | < num_steps , INT_UNSIGNED_LONG_STATIC > |
- 12 --> | < step , DOUBLE > |
- 33 --> | < main , Function Symbol , INT , Parameter List: < argc , IDENTIFIER , INT >, < argv , IDENTIFIER , CHAR > > |
+ 33 --> | < main , Function Symbol , INT , Parameter List:  > |
 

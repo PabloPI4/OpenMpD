@@ -115,6 +115,10 @@ public:
         return sizeListStr;
     }
 
+    vector<string> getArrSize() {
+        return arrSize;
+    }
+
     void setIsFunction(bool set){
         isFunc = set;
     }
@@ -152,7 +156,11 @@ public:
         arrSize.push_back(size);
     }
 
-     void setIsDefined(bool set){
+    size_t getArrListSize() {
+        return arrSize.size();
+    }
+
+    void setIsDefined(bool set){
         isDef = set;
     }
 

@@ -34,6 +34,7 @@ extern int enAllReductionDistribute;
 extern int enScatter;
 extern int enGather;
 extern int enAllGather;
+extern string DeclareTypes;
 
 extern void MPIEmpezarSecuencial();
 extern void finSecuencial();
@@ -187,6 +188,7 @@ void updateText() {
 
 void lastLine(){
     output << (linea ? linea : "") << endl;
+    linea = NULL;
 }
 
 //Esta funcion cambia la linea que contiene un for al formato distribute y devuelve los valores de inicio y final del for que había anteriormente
@@ -207,6 +209,7 @@ void calcularDistribute(string *ini, string *fin, char **linea) {
                     break;
 
             case 1: if (saltar > 0) {saltar--; continue;}
+                    if ((*linea)[i] == ' ' || (*linea)[i] == '\t') {continue;}
                     if ((*linea)[i] == ';') {
                         if (!activarOperador) {
                             *ini += guardarIni;
@@ -238,6 +241,7 @@ void calcularDistribute(string *ini, string *fin, char **linea) {
                     break;
 
             case 2: if (saltar > 0) {cout << "No se permite declaracion en la zona de condicion de un bucle" << endl; exit(80);}
+                    if ((*linea)[i] == ' ' || (*linea)[i] == '\t') {continue;}
                     if ((*linea)[i] == ';') {
                         if (!activarOperador) {
                             cout << "No se permite este tipo de for en distribute" << endl; exit(83);
@@ -281,7 +285,8 @@ void calcularDistribute(string *ini, string *fin, char **linea) {
                     if (activarVarFin) {*ini += (*linea)[i];}
                     break;
 
-            case 3: guardarInc[guardIncCont] = (*linea)[i];
+            case 3: if ((*linea)[i] == ' ' || (*linea)[i] == '\t') {continue;}
+                    guardarInc[guardIncCont] = (*linea)[i];
                     guardIncCont++;
                     break;
         }

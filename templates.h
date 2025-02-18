@@ -1072,9 +1072,13 @@ void GatherConChunk(std::vector<const char *> argsG) {
         "\t\t\t\t__displs[__taskid] = " + vals.at(1) + mult + ";\n" +
         "\t\t\t\t__offset += __numprocs*" + chunk + ";\n" +
         "\t\t\t}\n" +
+        //"\t\t\t" + aMinuscula(infoVar->getVariableType()) + " __" + vals.at(0) + "Aux = (" + aMinuscula(infoVar->getVariableType()) + " *) malloc(sizeof(" +
+        //aMinuscula(infoVar->getVariableType()) + ")*" + vals.at(1) + mult + ");\n" +
         "\t\t}\n\n" +
         "\t\tMPI_Gatherv(" + vals.at(0) + "+__displs[__taskid], __counts[__taskid], " + translateTypes(infoVar->getVariableType()) +
         ", " + vals.at(0) + ", __counts, __displs, " + translateTypes(infoVar->getVariableType()) + ", 0, MPI_COMM_WORLD);\n" +
+        //"\t\tif (__taskid == 0) {\n" +
+        //"\t\t\tmemcpy(" + vals.at(0) + ", "
         "\t}\n" +
         "}\n";
 
@@ -1094,8 +1098,9 @@ void GatherSinChunk(std::vector<const char *> argsG) {
     }
 
     string gather =
-        "{\n\tint __chunk;\n\tint *__displs = (int *) malloc(sizeof(int) * __numprocs);\n\tint *__counts = (int *) malloc(sizeof(int) * __numprocs);\n\t__chunk = (" +
-        vals.at(1) + " / __numprocs);\n" +
+        "{\n\tint __chunk;\n\tint *__displs = (int *) malloc(sizeof(int) * __numprocs);\n\tint *__counts = (int *) malloc(sizeof(int) * __numprocs);\n\t" +
+        aMinuscula(infoVar->getVariableType()) + " *__" + vals.at(0) + "Aux;\n" +
+        "\t__chunk = (" + vals.at(1) + " / __numprocs);\n" +
         "\t__displs[__taskid] = __chunk*__taskid" + mult + ";\n\n" +
 
         "\tif (__taskid < (" + vals.at(1) + " % __numprocs)) {\n" +
@@ -1123,11 +1128,17 @@ void GatherSinChunk(std::vector<const char *> argsG) {
         "\t\t\t\t__displs[__gather] = __displs[__gather - 1] + __chunk" + mult + ";\n" +
         "\t\t\t}\n" +
         "\t\t}\n\n" +
-        "\t\tassert((__displs[__numprocs - 1] + counts[__numprocs - 1]) == " + vals.at(1) + mult + ");\n" +
+        "\t\tassert((__displs[__numprocs - 1] + __counts[__numprocs - 1]) == " + vals.at(1) + mult + ");\n" +
+        "\t\t" + "__" + vals.at(0) + "Aux = (" + aMinuscula(infoVar->getVariableType()) + " *) malloc(sizeof(" +
+        aMinuscula(infoVar->getVariableType()) + ")*" + vals.at(1) + mult + ");\n" +
         "\t}\n\n" +
 
-        "\tMPI_Gatherv(" + vals.at(0) + "+__displs[__taskid], counts[__taskid], " + translateTypes(infoVar->getVariableType()) +
-        ", " + vals.at(0) + ", __counts, __displs, " + translateTypes(infoVar->getVariableType()) + ", 0, MPI_COMM_WORLD);\n" +
+        "\tMPI_Gatherv(" + vals.at(0) + "+__displs[__taskid], __counts[__taskid], " + translateTypes(infoVar->getVariableType()) +
+        ", __" + vals.at(0) + "Aux, __counts, __displs, " + translateTypes(infoVar->getVariableType()) + ", 0, MPI_COMM_WORLD);\n" +
+
+        "\tif (__taskid == 0) {\n" +
+        "\t\tmemcpy(" + vals.at(0) + ", __" + vals.at(0) + "Aux, sizeof(" + aMinuscula(infoVar->getVariableType()) + ")*" + vals.at(1) + mult + ");\n" +
+        "\t}\n"
         "}\n";
 
     output << gather << endl;
@@ -1189,8 +1200,8 @@ void AllGatherConChunk(std::vector<const char *> argsG) {
         "\t\t\t\t__offset += __numprocs*" + chunk + ";\n" +
         "\t\t\t}\n" +
         "\t\t}\n\n" +
-        "\t\tMPI_Gatherv(" + vals.at(0) + "+__displs[__taskid], __counts[__taskid], " + translateTypes(infoVar->getVariableType()) +
-        ", " + vals.at(0) + ", __counts, __displs, " + translateTypes(infoVar->getVariableType()) + ", 0, MPI_COMM_WORLD);\n" +
+        "\t\tMPI_Allgatherv(" + vals.at(0) + "+__displs[__taskid], __counts[__taskid], " + translateTypes(infoVar->getVariableType()) +
+        ", " + vals.at(0) + ", __counts, __displs, " + translateTypes(infoVar->getVariableType()) + ", MPI_COMM_WORLD);\n" +
         "\t}\n" +
         "}\n";
 
@@ -1239,11 +1250,11 @@ void AllGatherSinChunk(std::vector<const char *> argsG) {
         "\t\t\t\t__displs[__gather] = __displs[__gather - 1] + __chunk" + mult + ";\n" +
         "\t\t\t}\n" +
         "\t\t}\n\n" +
-        "\t\tassert((__displs[__numprocs - 1] + counts[__numprocs - 1]) == " + vals.at(1) + mult + ");\n" +
+        "\t\tassert((__displs[__numprocs - 1] + __counts[__numprocs - 1]) == " + vals.at(1) + mult + ");\n" +
         "\t}\n\n" +
 
-        "\tMPI_Gatherv(" + vals.at(0) + "+__displs[__taskid], counts[__taskid], " + translateTypes(infoVar->getVariableType()) +
-        ", " + vals.at(0) + ", __counts, __displs, " + translateTypes(infoVar->getVariableType()) + ", 0, MPI_COMM_WORLD);\n" +
+        "\tMPI_Allgatherv(" + vals.at(0) + "+__displs[__taskid], __counts[__taskid], " + translateTypes(infoVar->getVariableType()) +
+        ", " + vals.at(0) + ", __counts, __displs, " + translateTypes(infoVar->getVariableType()) + ", MPI_COMM_WORLD);\n" +
         "}\n";
 
     output << gather << endl;
