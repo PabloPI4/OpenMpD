@@ -1,7 +1,7 @@
+#include <string.h>
 #include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
-#include <string.h>
 
 void DeclareTypesMPI();
 
@@ -9,7 +9,7 @@ int __taskid = -1, __numprocs = -1;
 int main() {
     int *valores;
 
-	MPI_Init(NULL, NULL);
+	MPI_Init(&argc,&argv);
 	MPI_Comm_size(MPI_COMM_WORLD,&__numprocs);
 	MPI_Comm_rank(MPI_COMM_WORLD,&__taskid);
 	DeclareTypesMPI();
@@ -75,7 +75,7 @@ if (__taskid == (__numprocs - 1)) assert(__end == (8));
 	memcpy(valores, __valoresAux, sizeof(int)*8);
 }
 
-if (__taskid == 3) {
+if (__taskid == 0) {
 
 	    for (int i = 0; i < 8; i++) {
 	        fprintf(stderr, "valores[%d] = %d\n", i, valores[i]);
@@ -85,7 +85,6 @@ if (__taskid == 3) {
 	MPI_Finalize();
     return 0;
 }
-
 
 void DeclareTypesMPI() {
 }

@@ -435,7 +435,7 @@ vector<string> scatterHaloArgs(){
 void MPIInit(){
     long posActual = output.tellp();
 
-    output.seekp(0);
+    output.seekp(20);
 
     output.write("#include <assert.h>\n#include <mpi.h>", 36);
 
@@ -449,6 +449,16 @@ void MPIInit(){
     
     output.seekp(posActual);
     statementZone = 1;
+}
+
+void IncludeString() {
+    long posActual = output.tellp();
+
+    output.seekp(0);
+
+    output.write("#include <string.h>", 19);
+
+    output.seekp(posActual);
 }
 
 void MPIEmpezarSecuencial() {

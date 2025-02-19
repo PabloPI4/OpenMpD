@@ -44,6 +44,7 @@ extern int main_end;
 extern int main_init;
 extern void MPIInit();
 
+int includeStringDone = 0;
 int enCluster = 0;
 int enDistribute = 0;
 int enReductionCluster = 0;
@@ -80,6 +81,7 @@ extern void addArgGather(const char *arg);
 extern void addArgAllGather(const char *arg);
 extern void aumentarAllReduction();
 extern void aumentarReduction();
+extern void IncludeString();
 
 %}
 
@@ -2471,8 +2473,8 @@ parallel_clause : if_parallel_clause
 cluster_clause : alloc_clause
 			   | broad_clause
 			   | {enScatter = 1; chunk_pos = 0; aumentarScatter();} scatter_clause {enScatter = 0;}
-			   | {enGather = 1; chunk_pos = 0; aumentarGather(); enGatherInst = 1;} gather_clause {enGatherInst = 0;}
-			   | {enAllGather = 1; chunk_pos = 0; aumentarAllGather(); enAllGatherInst = 1;} allgather_clause {enAllGatherInst = 0;}
+			   | {enGather = 1; chunk_pos = 0; aumentarGather(); enGatherInst = 1;} gather_clause {enGatherInst = 0; if (!includeStringDone){includeStringDone = 1; IncludeString();}}
+			   | {enAllGather = 1; chunk_pos = 0; aumentarAllGather(); enAllGatherInst = 1;} allgather_clause {enAllGatherInst = 0; if (!includeStringDone){includeStringDone = 1; IncludeString();}}
 			   | halo_clause
 			   | {enReductionCluster = 1;} reduction_clause_cluster
 			   | {enAllReductionCluster = 1;} allreduction_clause_cluster

@@ -719,7 +719,7 @@ jump_statement
 	;
 
 translation_unit
-	: {output.write("                                    \n", 37); } external_declaration 
+	: {output.write("                   \n                                    \n", 57); } external_declaration 
 	| translation_unit external_declaration
 	;
 
