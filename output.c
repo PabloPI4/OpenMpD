@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <mpi.h>
 #include <stdio.h>
+#include <string.h>
 
 void DeclareTypesMPI();
 
@@ -8,7 +9,7 @@ int __taskid = -1, __numprocs = -1;
 int main() {
     int *valores;
 
-	MPI_Init(&argc,&argv);
+	MPI_Init(NULL, NULL);
 	MPI_Comm_size(MPI_COMM_WORLD,&__numprocs);
 	MPI_Comm_rank(MPI_COMM_WORLD,&__taskid);
 	DeclareTypesMPI();
@@ -35,55 +36,46 @@ __end = __start + __iter;
 if (__taskid == (__numprocs - 1)) assert(__end == (8));
 
 	for (int __distrib = __start; __distrib < __end; __distrib++){
-	            valores[__distrib] = valores[__distrib]  + __distrib;
+	            valores[__distrib] = __distrib;
 	        }
 	    }
 {
 	int __chunk;
 	int *__displs = (int *) malloc(sizeof(int) * __numprocs);
 	int *__counts = (int *) malloc(sizeof(int) * __numprocs);
-	int *__valoresAux;
+	int *__valoresAux = (int *) malloc(sizeof(int)*8);
 	__chunk = (8 / __numprocs);
-	__displs[__taskid] = __chunk*__taskid;
 
-	if (__taskid < (8 % __numprocs)) {
-		__counts[__taskid] = (__chunk + 1);
-		__displs[__taskid] += __taskid;
+	__displs[0] = 0;
+	if (0 < (8 % __numprocs)) {
+		__counts[0] = (__chunk + 1);
 	}
 	else {
-		__counts[__taskid] = __chunk;
-		__displs[__taskid] += (8 % __numprocs);
+		__counts[0] = __chunk;
 	}
 
-	if (__taskid == 0) {
-		__displs[0] = 0;
-
-		for (int __gather = 1; __gather < __numprocs; __gather++) {
-			if (__gather < (8 % __numprocs)) {
-				__counts[__gather] = (__chunk + 1);
-				__displs[__gather] = __displs[__gather - 1] + (__chunk + 1);
-			}
-			else if (__gather == (8 % __numprocs)) {
-				__counts[__gather] = __chunk;
-				__displs[__gather] = __displs[__gather - 1] + (__chunk + 1);
-			}
-			else {
-				__counts[__gather] = __chunk;
-				__displs[__gather] = __displs[__gather - 1] + __chunk;
-			}
+	for (int __gather = 1; __gather < __numprocs; __gather++) {
+		if (__gather < (8 % __numprocs)) {
+			__counts[__gather] = (__chunk + 1);
+			__displs[__gather] = __displs[__gather - 1] + (__chunk + 1);
 		}
-
-		assert((__displs[__numprocs - 1] + __counts[__numprocs - 1]) == 8);
-		__valoresAux = (int *) malloc(sizeof(int)*8);
+		else if (__gather == (8 % __numprocs)) {
+			__counts[__gather] = __chunk;
+			__displs[__gather] = __displs[__gather - 1] + (__chunk + 1);
+		}
+		else {
+			__counts[__gather] = __chunk;
+			__displs[__gather] = __displs[__gather - 1] + __chunk;
+		}
 	}
 
-	MPI_Gatherv(valores+__displs[__taskid], __counts[__taskid], MPI_INT, __valoresAux, __counts, __displs, MPI_INT, 0, MPI_COMM_WORLD);
-	if (__taskid == 0) {
-		memcpy(valores, __valoresAux, sizeof(int)*8);
-	}
+	assert((__displs[__numprocs - 1] + __counts[__numprocs - 1]) == 8);
+
+	MPI_Allgatherv(valores+__displs[__taskid], __counts[__taskid], MPI_INT, __valoresAux, __counts, __displs, MPI_INT, MPI_COMM_WORLD);
+	memcpy(valores, __valoresAux, sizeof(int)*8);
 }
 
-if (__taskid == 0) {
+if (__taskid == 3) {
 
 	    for (int i = 0; i < 8; i++) {
 	        fprintf(stderr, "valores[%d] = %d\n", i, valores[i]);

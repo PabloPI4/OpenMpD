@@ -5,7 +5,7 @@ int main() {
 
     fprintf(stderr, "prueba\n");
 
-    #pragma omp cluster gather(valores[8])
+    #pragma omp cluster allgather(valores[8])
     {
         if ((valores = (int *) malloc(sizeof(int) * 8)) == NULL) {
             fprintf(stderr, "error de asignacion de memoria dinamica\n");
@@ -14,7 +14,7 @@ int main() {
 
         #pragma omp cluster teams distribute
         for (int i = 0; i < 8; i++) {
-            valores[i] = valores[i]  + i;
+            valores[i] = i;
         }
     }
 
