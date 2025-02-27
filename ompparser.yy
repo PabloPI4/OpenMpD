@@ -58,6 +58,8 @@ int enGatherInst = 0;
 int enAllGatherInst = 0;
 int n_llaves = -100;
 int chunk_pos;
+int enDeclare = 0;
+
 extern int dist_n_llaves;
 
 void * (*exprParse)(const char*) = NULL;
@@ -82,6 +84,7 @@ extern void addArgAllGather(const char *arg);
 extern void aumentarAllReduction();
 extern void aumentarReduction();
 extern void IncludeString();
+extern void MPIDeclareCluster();
 
 %}
 
@@ -302,6 +305,8 @@ openmp_directive : parallel_directive
                  | target_parallel_do_simd_directive
                  | target_teams_distribute_parallel_do_directive
                  | target_teams_distribute_parallel_do_simd_directive
+                 | declare_cluster_directive
+                 | end_declare_cluster_directive
                  | {
                       if(main_init == 1 && MPIInitDone == 0){
                       	MPIInit();
@@ -320,8 +325,6 @@ openmp_directive : parallel_directive
 
 directiveAuxCluster
                   : cluster_directive {n_llaves = 0;}
-				          | declare_cluster_directive
-				          | end_declare_cluster_directive
 				          | cluster_data_directive
 				          | cluster_update_directive
 				          | cluster_teams_directive
@@ -549,10 +552,12 @@ parallel_directive : PARALLEL { } parallel_clause_optseq
 cluster_directive : CLUSTER { } cluster_clause_optseq
 				  ;
 				  
-declare_cluster_directive : DECLARE CLUSTER { }
+declare_cluster_directive : DECLARE CLUSTER {
+                                enDeclare = 1;
+                            }
 						  ;
 						  
-end_declare_cluster_directive : END DECLARE CLUSTER { }
+end_declare_cluster_directive : END DECLARE CLUSTER { enDeclare = 0; MPIDeclareCluster(); }
 							  ;
 			   
 cluster_data_directive : CLUSTER DATA { } cluster_data_clause_optseq

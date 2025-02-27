@@ -13,6 +13,8 @@
 using namespace std;
 
 vector<const char *> args;
+char *declare = NULL;
+int tamDeclare = 0;
 std::vector<std::vector<const char *>> argsScatter;
 std::vector<std::vector<const char *>> argsGather;
 std::vector<std::vector<const char *>> argsAllGather;
@@ -29,6 +31,8 @@ string DeclareTypes = "void DeclareTypesMPI() {\n";
 
 std::vector<std::string> varsReduceConstruir;
 std::vector<std::vector<std::string>> reduceConst;
+
+std::vector<std::vector<std::string>> tiposMPI;
 
 extern ofstream output, errFile;
 
@@ -155,7 +159,7 @@ string translateTypes(string type) {
         string x = "";
 
         for (; i < type.size(); i++) {
-            if (type.at(i) == '_') {
+            if (type.at(i) == '_' || type.at(i) == ' ') {
                 break;
             }
             else {
@@ -1281,6 +1285,294 @@ void MPIAllGather() {
             exit(210);
         }
     }
+}
+
+void MPIDeclareCluster() {
+    if ((declare = (char *) realloc(declare, tamDeclare + 1)) == NULL) {
+        fprintf(stderr, "error en asignacion de memoria dinamica\n");
+        exit(40);
+    }
+    declare[tamDeclare] = '\0';
+    
+    int positionDeclare = 0;
+    char *iniAnalisis;
+    std::vector<std::vector<std::vector<std::string>>> campos;
+    int n_structs = 0;
+    std::vector<int> numcampos;
+
+    while ((iniAnalisis = strstr(declare + positionDeclare, "struct")) != NULL) {
+        tiposMPI.push_back({});
+        campos.push_back({});
+        numcampos.push_back(0);
+        
+        int deftype;
+        if (strstr(declare, "typedef") != NULL) {
+            deftype = 1;
+        }
+        else {
+            deftype = 0;
+        }
+
+        int estado = 0;
+        int counterTipo = 0;
+        std::string name = "";
+        int n_campos = 0;
+        int tipoMetido = 0;
+
+        for (int i = iniAnalisis - declare + 6; i < tamDeclare; i++) {
+            if (declare[i] == ' ' || declare[i] == '\t' || declare[i] == '\n') {
+                continue;
+            }
+
+            switch(estado) {
+                case 0: if (declare[i] == '{') {
+                            estado = 1;
+                            if (name.size() > 0) {
+                                for (unsigned long int j = 0; j < tiposMPI.size(); j++) {
+                                    for (unsigned long int k = 1; k < tiposMPI.at(j).size(); k++) {
+                                        if (name.compare(tiposMPI.at(j).at(k)) == 0) {
+                                            fprintf(stderr, "declarando varias veces el mismo tipo MPI\n");
+                                            exit(52);
+                                        }
+                                    }
+                                }
+
+                                string tipo = name + "_type_MPI";
+
+                                tiposMPI.at(tiposMPI.size() - 1).push_back(tipo);
+                                tiposMPI.at(tiposMPI.size() - 1).push_back(name);
+
+                                tipoMetido = 1;
+                            }
+                            else {
+                                if (!deftype) {
+                                    fprintf(stderr, "El tipo MPI que se quiere declarar no tiene nombre\n");
+                                    exit(51);
+                                }
+                            }
+                            name = "";
+                            continue;
+                        }
+
+                        name += declare[i];
+                        break;
+
+                case 1: if (declare[i] == '}') {
+                            if (deftype) {
+                                estado = 3;
+                            }
+                            else {
+                                estado = 4;
+                            }
+                            break;
+                        }
+
+                        if (strncmp(declare + i, "char", 4) == 0) {
+                            if (counterTipo) {
+                                name += " ";
+                            }
+                            name += "CHAR";
+                            counterTipo++;
+                            i += 3;
+                        }
+                        else if (strncmp(declare + i, "int", 3) == 0) {
+                            if (counterTipo) {
+                                name += " ";
+                            }
+                            name += "INT";
+                            counterTipo++;
+                            i += 2;
+                        }
+                        else if (strncmp(declare + i, "float", 5) == 0) {
+                            if (counterTipo) {
+                                name += " ";
+                            }
+                            name += "FLOAT";
+                            counterTipo++;
+                            i += 4;
+                        }
+                        else if (strncmp(declare + i, "double", 6) == 0) {
+                            if (counterTipo) {
+                                name += " ";
+                            }
+                            name += "DOUBLE";
+                            counterTipo++;
+                            i += 5;
+                        }
+                        else if (strncmp(declare + i, "bool", 4) == 0) {
+                            if (counterTipo) {
+                                name += " ";
+                            }
+                            name += "BOOL";
+                            counterTipo++;
+                            i += 3;
+                        }
+                        else if (strncmp(declare + i, "short", 5) == 0) {
+                            if (counterTipo) {
+                                name += " ";
+                            }
+                            name += "SHORT";
+                            counterTipo++;
+                            i += 4;
+                        }
+                        else if (strncmp(declare + i, "long", 4) == 0) {
+                            if (counterTipo) {
+                                name += " ";
+                            }
+                            name += "LONG";
+                            counterTipo++;
+                            i += 3;
+                        }
+                        else if (strncmp(declare + i, "byte", 4) == 0) {
+                            if (counterTipo) {
+                                name += " ";
+                            }
+                            name += "BYTE";
+                            counterTipo++;
+                            i += 3;
+                        }
+                        else if (strncmp(declare + i, "complex", 7) == 0) {
+                            if (counterTipo) {
+                                name += " ";
+                            }
+                            name += "COMPLEX";
+                            counterTipo++;
+                            i += 6;
+                        }
+                        else if (strncmp(declare + i, "signed", 6) == 0) {
+                            if (counterTipo) {
+                                name += " ";
+                            }
+                            name += "SIGNED";
+                            counterTipo++;
+                            i += 5;
+                        }
+                        else if (strncmp(declare + i, "unsigned", 8) == 0) {
+                            if (counterTipo) {
+                                name += " ";
+                            }
+                            name += "UNSIGNED";
+                            counterTipo++;
+                            i += 7;
+                        }
+                        else {
+                            estado = 2;
+
+                            campos.at(n_structs).push_back({});
+                            campos.at(n_structs).at(n_campos).push_back(translateTypes(name));
+                            name = "";
+                            name += declare[i];
+                            continue;
+                        }
+                        break;
+
+                case 2: if (declare[i] == ',') {
+                            campos.at(n_structs).at(n_campos).push_back(name);
+                            numcampos.at(n_structs)++;
+                            name = "";
+                            continue;
+                        }
+
+                        if (declare[i] == ';') {
+                            campos.at(n_structs).at(n_campos).push_back(name);
+                            numcampos.at(n_structs)++;
+                            name = "";
+                            estado = 1;
+                            n_campos++;
+                            continue;
+                        }
+
+                        name += declare[i];
+                        break;
+
+                case 3: if (declare[i] == ';') {
+                            for (unsigned long int j = 0; j < tiposMPI.size(); j++) {
+                                for (unsigned long int k = 1; k < tiposMPI.at(j).size(); k++) {
+                                    if (name.compare(tiposMPI.at(j).at(k)) == 0) {
+                                        fprintf(stderr, "declarando varias veces el mismo tipo MPI\n");
+                                        exit(52);
+                                    }
+                                }
+                            }
+
+                            if (!tipoMetido) {
+                                string tipo = name + "_type_MPI";
+                                tiposMPI.at(tiposMPI.size() - 1).push_back(tipo);
+                            }
+
+                            tiposMPI.at(tiposMPI.size() - 1).push_back(name);
+                            estado = 4;
+                            break;
+                        }
+
+                        name += declare[i];
+                        break;
+            }
+
+            if (estado == 4) {
+                positionDeclare = i;
+                break;
+            }
+        }
+
+        n_structs++;
+    }
+
+    //PRINT PARA COMPRPOBAR QUE LOS TIPOS SE METEN BIEN
+    //BORRAR
+    for (unsigned long int i = 0; i < tiposMPI.size(); i++) {
+        fprintf(stderr, "NUEVO TIPO:\n");
+
+        for (unsigned long int j = 0; j < tiposMPI.at(i).size(); j++) {
+            fprintf(stderr, "%s ", tiposMPI.at(i).at(j).data());
+        }
+
+        fprintf(stderr, "\n");
+    }
+
+    for (unsigned long int i = 0; i < campos.size(); i++) {
+        string declaracion;
+        int posTipo = tiposMPI.size() - campos.size() + i;
+
+        declaracion = ("int __blocklengths_" + tiposMPI.at(posTipo).at(1) + "[" + std::to_string(numcampos.at(i)) + "];\n" +
+            "MPI_Datatype __old_types_" + tiposMPI.at(posTipo).at(1) + "[" + std::to_string(numcampos.at(i)) + "];\n" +
+            "MPI_Aint __disp_" + tiposMPI.at(posTipo).at(1) + "[" + std::to_string(numcampos.at(i)) + "];\n" +
+            "MPI_Aint __lb_" + tiposMPI.at(posTipo).at(1) + ";\n" +
+            "MPI_Aint __extent_" + tiposMPI.at(posTipo).at(1) + ";\n");
+        
+        int it = 0;
+        
+        for (unsigned long int j = 0; j < campos.at(i).size(); j++) {
+            for (unsigned long int k = 1; k < campos.at(i).at(j).size(); k++) {
+                string newTypeMPI = translateTypes(campos.at(i).at(j).at(0));
+                declaracion += ("__blocklengths_" + tiposMPI.at(posTipo).at(1) + "[" + std::to_string(it) + "] = sizeof(" + campos.at(i).at(j).at(0) + ");\n");
+                declaracion += ("__old_types_" + tiposMPI.at(posTipo).at(1) + "[" + std::to_string(it) + "] = " + newTypeMPI + ";\n");
+                declaracion += ("MPI_Type_get_extent(" + newTypeMPI + ", &__lb_" + tiposMPI.at(posTipo).at(1) + ", &__extent_" + tiposMPI.at(posTipo).at(1) + ");\n");
+                
+                if (it == 0) {
+                    declaracion += ("__disp_" + tiposMPI.at(posTipo).at(1) + "[" + std::to_string(it) + "] = __lb_" + tiposMPI.at(posTipo).at(1) + ";\n");
+                }
+                else {
+                    declaracion += ("__disp_" + tiposMPI.at(posTipo).at(1) + "[" + std::to_string(it) + "] = __disp_" + tiposMPI.at(posTipo).at(1) + 
+                    "[" + std::to_string(it - 1) + "] + __extent_" + tiposMPI.at(posTipo).at(1) + ";\n");
+                }
+
+                it++;
+            }
+        }
+
+        declaracion += ("MPI_Type_create_struct(" + std::to_string(numcampos.at(i)) + ", __blocklengths_" + tiposMPI.at(posTipo).at(1) + ", __disp_" 
+        + tiposMPI.at(posTipo).at(1) + ", __old_types_" + tiposMPI.at(posTipo).at(1) + ", &" + tiposMPI.at(posTipo).at(0) + ");\n");
+        declaracion += ("MPI_Type_commit(&" + tiposMPI.at(posTipo).at(0) + ");\n");
+
+        DeclareTypes += (declaracion + "\n");
+
+        output << "MPI_Datatype " << tiposMPI.at(posTipo).at(0) << ";" << endl;
+    }
+
+    tamDeclare = 0;
+    free(declare);
+    declare = NULL;
 }
 
 #endif 

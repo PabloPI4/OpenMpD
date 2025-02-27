@@ -40,7 +40,7 @@ gettimeofday(&t1, NULL);
 
 step = 1.0/(double) num_steps;
 
-#pragma omp cluster broad(num_steps, step) gather(valores[10][5]:chunk(2))
+#pragma omp cluster broad(num_steps, step)
 {
 #pragma omp teams distribute reduction(min:step) reduction(+:step)
 #pragma omp parallel for simd private(x) reduction(*:step)

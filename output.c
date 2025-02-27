@@ -1,90 +1,64 @@
-#include <string.h>
+                   
 #include <assert.h>
 #include <mpi.h>
+#include <omp.h>
 #include <stdio.h>
 
 void DeclareTypesMPI();
 
 int __taskid = -1, __numprocs = -1;
-int main() {
-    int *valores;
+    typedef struct {
+        int campo1;
+        char campo2, campo3;
+        int campo4;
+    } t_pru;
+MPI_Datatype t_pru_type_MPI;
 
-	MPI_Init(&argc,&argv);
+int main() {
+    int x = 0;
+
+	MPI_Init(NULL, NULL);
 	MPI_Comm_size(MPI_COMM_WORLD,&__numprocs);
 	MPI_Comm_rank(MPI_COMM_WORLD,&__taskid);
 	DeclareTypesMPI();
 if (__taskid == 0) {
-    fprintf(stderr, "prueba\n");
+    x += 8;
 
 }
 	        {
-	        if ((valores = (int *) malloc(sizeof(int) * 8)) == NULL) {
-	            fprintf(stderr, "error de asignacion de memoria dinamica\n");
-	            exit(2);
-	        }
-
-int __iter;
-int __start;
-int __end;
-__iter = (((8) - (0)) / __numprocs);
-if (__taskid < (((8) - (0)) % __numprocs))
-	__iter++;
-__start = ((0) + __iter * __taskid);
-if (__taskid >= (((8) - (0)) % __numprocs))
-	__start += (((8) - (0)) % __numprocs);
-__end = __start + __iter;
-if (__taskid == (__numprocs - 1)) assert(__end == (8));
-
-	for (int __distrib = __start; __distrib < __end; __distrib++){
-	            valores[__distrib] = __distrib;
-	        }
+	    printf("x = %d\n", x);
 	    }
-{
-	int __chunk;
-	int *__displs = (int *) malloc(sizeof(int) * __numprocs);
-	int *__counts = (int *) malloc(sizeof(int) * __numprocs);
-	int *__valoresAux = (int *) malloc(sizeof(int)*8);
-	__chunk = (8 / __numprocs);
-
-	__displs[0] = 0;
-	if (0 < (8 % __numprocs)) {
-		__counts[0] = (__chunk + 1);
-	}
-	else {
-		__counts[0] = __chunk;
-	}
-
-	for (int __gather = 1; __gather < __numprocs; __gather++) {
-		if (__gather < (8 % __numprocs)) {
-			__counts[__gather] = (__chunk + 1);
-			__displs[__gather] = __displs[__gather - 1] + (__chunk + 1);
-		}
-		else if (__gather == (8 % __numprocs)) {
-			__counts[__gather] = __chunk;
-			__displs[__gather] = __displs[__gather - 1] + (__chunk + 1);
-		}
-		else {
-			__counts[__gather] = __chunk;
-			__displs[__gather] = __displs[__gather - 1] + __chunk;
-		}
-	}
-
-	assert((__displs[__numprocs - 1] + __counts[__numprocs - 1]) == 8);
-
-	MPI_Allgatherv(valores+__displs[__taskid], __counts[__taskid], MPI_INT, __valoresAux, __counts, __displs, MPI_INT, MPI_COMM_WORLD);
-	memcpy(valores, __valoresAux, sizeof(int)*8);
-}
-
 if (__taskid == 0) {
-
-	    for (int i = 0; i < 8; i++) {
-	        fprintf(stderr, "valores[%d] = %d\n", i, valores[i]);
-	    }
 
 }
 	MPI_Finalize();
     return 0;
 }
 
+
 void DeclareTypesMPI() {
+int __blocklengths_t_pru[4];
+MPI_Datatype __old_types_t_pru[4];
+MPI_Aint __disp_t_pru[4];
+MPI_Aint __lb_t_pru;
+MPI_Aint __extent_t_pru;
+__blocklengths_t_pru[0] = sizeof(MPI_INT);
+__old_types_t_pru[0] = MPI_INT;
+MPI_Type_get_extent(MPI_INT, &__lb_t_pru, &__extent_t_pru);
+__disp_t_pru[0] = __lb_t_pru;
+__blocklengths_t_pru[1] = sizeof(MPI_CHAR);
+__old_types_t_pru[1] = MPI_CHAR;
+MPI_Type_get_extent(MPI_CHAR, &__lb_t_pru, &__extent_t_pru);
+__disp_t_pru[1] = __disp_t_pru[0] + __extent_t_pru;
+__blocklengths_t_pru[2] = sizeof(MPI_CHAR);
+__old_types_t_pru[2] = MPI_CHAR;
+MPI_Type_get_extent(MPI_CHAR, &__lb_t_pru, &__extent_t_pru);
+__disp_t_pru[2] = __disp_t_pru[1] + __extent_t_pru;
+__blocklengths_t_pru[3] = sizeof(MPI_INT);
+__old_types_t_pru[3] = MPI_INT;
+MPI_Type_get_extent(MPI_INT, &__lb_t_pru, &__extent_t_pru);
+__disp_t_pru[3] = __disp_t_pru[2] + __extent_t_pru;
+MPI_Type_create_struct(4, __blocklengths_t_pru, __disp_t_pru, __old_types_t_pru, &t_pru_type_MPI);
+MPI_Type_commit(&t_pru_type_MPI);
+
 }

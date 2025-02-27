@@ -1,14 +1,7 @@
-ScopeTable # 1.1.1
-
-ScopeTable # 1.1.2
- 29 --> | < i , INT > |
-
-ScopeTable # 1.1.3
- 29 --> | < i , INT > |
-
 ScopeTable # 1.1
- 8 --> | < valores , Pointer Symbol , INT > |
+ 6 --> | < x , INT > |
 
 ScopeTable # 1
+ 30 --> | < t_pru , TYPEDEF_STRUCT > |
  33 --> | < main , Function Symbol , INT , Parameter List:  > |
 

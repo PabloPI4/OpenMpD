@@ -291,11 +291,14 @@ init_declarator
 	;
 
 storage_class_specifier
-	: TYPEDEF		{ $$ = new SymbolInfo("typedef", "TYPEDEF"); }
+	: { if (posVarsInit == -100 && !MPIInitDone) {
+			posVarsInit = output.tellp();
+			output.write("                                                            \n", 61);
+		} } TYPEDEF { $$ = new SymbolInfo("typedef", "TYPEDEF"); }
 	| { if (posVarsInit == -100 && !MPIInitDone) {
 			posVarsInit = output.tellp();
 			output.write("                                                            \n", 61);
-		} } EXTERN		{ $$ = new SymbolInfo("extern", "EXTERN"); }
+		} } EXTERN { $$ = new SymbolInfo("extern", "EXTERN"); }
 	| { if (posVarsInit == -100 && !MPIInitDone) {
 			posVarsInit = output.tellp();
 			output.write("                                                            \n", 61);
@@ -303,11 +306,11 @@ storage_class_specifier
 	| { if (posVarsInit == -100 && !MPIInitDone) {
 			posVarsInit = output.tellp();
 			output.write("                                                            \n", 61);
-		} } AUTO			{ $$ = new SymbolInfo("auto", "AUTO"); }
+		} } AUTO { $$ = new SymbolInfo("auto", "AUTO"); }
 	| { if (posVarsInit == -100 && !MPIInitDone) {
 			posVarsInit = output.tellp();
 			output.write("                                                            \n", 61);
-		} } REGISTER		{ $$ = new SymbolInfo("register", "REGISTER"); }
+		} } REGISTER { $$ = new SymbolInfo("register", "REGISTER"); }
 	;
 
 type_specifier

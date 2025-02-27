@@ -1,0 +1,18 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "fparse",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/fparse",
+            "args": ["prueba.c", "log.txt", "errors.txt", "output.c"],
+            "cwd": "/home/pablopi4/uni/datsi/OpenMpD",
+            "MIMode": "gdb",
+            "stopAtEntry": true
+        }
+    ]
+}

@@ -35,6 +35,9 @@ extern int enScatter;
 extern int enGather;
 extern int enAllGather;
 extern string DeclareTypes;
+extern int enDeclare;
+extern int tamDeclare;
+extern char *declare;
 
 extern void MPIEmpezarSecuencial();
 extern void finSecuencial();
@@ -142,6 +145,19 @@ void updateText() {
             if (comprobarLlavesCluster(linea) && strstr(linea, "for") == NULL) {
                 dist_n_llaves = -100;
             }
+        }
+
+        if (enDeclare && linea) {
+            int lenLinea = strlen(linea);
+
+            if ((declare = (char *) realloc(declare, lenLinea + tamDeclare)) == NULL) {
+                fprintf(stderr, "error en asignacion de memoria dinamica\n");
+                exit(40);
+            }
+
+            strncpy(declare + tamDeclare, linea, lenLinea);
+
+            tamDeclare += lenLinea;
         }
 
         delete[] linea;
