@@ -35,6 +35,8 @@ extern SymbolTable table;
 
 int column = 0;
 int line_count = 1;
+int conArgc = 0;
+int conArgv = 0;
 
 extern int n_llaves;
 extern int enCluster;
@@ -203,12 +205,15 @@ extern int error_count;
 	else{
 		SymbolInfo *s = new SymbolInfo(yytext, (char *)"IDENTIFIER");
 		yylval.sym = s;
+		if (!MPIInitDone) {
+			if (strcmp(yytext, "argc") == 0) {
+				conArgc = 1;
+			}
+			if (strcmp(yytext, "argv") == 0) {
+				conArgv = 1;
+			}
+		}
 		return IDENTIFIER;
-		// if (strlen(yytext) > 31){
-		// 	logFile << "Error at line no  " << line_count << ": " << "Length of ID exeeded 31 characters " <<  yytext << endl << endl;
-		// 	errFile << "Error at line no  " << line_count << ": " << "Length of ID exeeded 31 characters " <<  yytext << endl << endl;
-		// 	error_count++;
-		// }
 	}
 }
 

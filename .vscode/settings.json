@@ -92,6 +92,7 @@
         "__split_buffer": "c",
         "__tree": "c",
         "filesystem": "c",
-        "ios": "c"
+        "ios": "c",
+        "omp.h": "c"
     }
 }

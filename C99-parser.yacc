@@ -371,7 +371,7 @@ struct_or_union_specifier
 	: struct_or_union IDENTIFIER '{' struct_declaration_list '}'    
 	{ 
 		$2->setIsStruct(true);
-		$2->setVariableType($1->getSymbolType());
+		$2->setVariableType($1->getSymbolType() + "_" + $2->getSymbolName());
 		if (table.insert($2)) {
 			logFile << "Inserted: " << $2->getSymbolName() << " in scope " << table.printScopeId() << endl;
 		}else {
@@ -389,6 +389,9 @@ struct_or_union_specifier
 	| struct_or_union IDENTIFIER
 	{ 
 		$2->setIsStruct(true);
+		$2->setVariableType($1->getSymbolType() + "_" + $2->getSymbolName());
+		$2->setSymbolName($1->getSymbolType() + "_" + $2->getSymbolName());
+
 		if (table.insert($2)) {
 			logFile << "Inserted: " << $2->getSymbolName() << " in scope " << table.printScopeId() << endl;
 		}else {
@@ -396,6 +399,8 @@ struct_or_union_specifier
 			errFile << "Error: " << $2->getSymbolName() << " already exists in scope " << endl;
 			error_count++;
 		}
+
+		$$ = $2;
 	}
 	;
 

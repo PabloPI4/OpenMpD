@@ -151,12 +151,10 @@ var_list : variable
           ;
 
 var_list_cluster : variable {
-                      printf("var: %s\n", $1);
                       addArg($1);
                     }
         | var_list_cluster ',' variable 
                     {
-                      printf("var: %s\n", $3);
                       addArg($3);
                     }
         ;
@@ -2559,9 +2557,9 @@ cluster_teams_distribute_clause : if_target_clause
 task_async_clause : DEPEND { } '(' dependance_type ':' var_list ')' 
 				  ;
 
-dependance_type : IN {printf("var: IN\n");
+dependance_type : IN {
                       addArg("IN"); }
-				| OUT {printf("var: OUT\n");
+				| OUT {
                       addArg("OUT"); }
 				;
 

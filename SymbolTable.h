@@ -67,6 +67,10 @@ public:
         return returnType;
     }
 
+    void setSymbolName (string name) {
+        symbolName = name;
+    }
+
     void setVariableType (string type){
         varType = type;
     }

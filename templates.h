@@ -43,6 +43,8 @@ extern int contadorTask;
 extern int enCluster;
 extern int chunk_pos;
 extern int enDistribute;
+extern int conArgc;
+extern int conArgv;
 
 extern int chunk;
 extern int task;
@@ -154,6 +156,33 @@ string aMinuscula(string cadena) {
 string translateTypes(string type) {
     string typeRes = "MPI";
     vector<string> parts;
+
+    char *structComp = strstr(type.data(), "STRUCT");
+    if (structComp) {
+        structComp += 7;
+    }
+
+    for (unsigned long int i = 0; i < tiposMPI.size(); i++) {
+        for (unsigned long int j = 1; j < tiposMPI.at(i).size(); j++) {
+            if (structComp) {
+                if (strcmp(structComp, tiposMPI.at(i).at(j).data()) == 0) {
+                    typeRes = tiposMPI.at(i).at(0);
+                    return typeRes;
+                }
+            }
+            else {
+                if (strcmp(type.data(), tiposMPI.at(i).at(j).data()) == 0) {
+                    typeRes = tiposMPI.at(i).at(0);
+                    return typeRes;
+                }
+            }
+        }
+    }
+
+    if (structComp) {
+        fprintf(stderr, "tipo de MPI no declarado\n");
+        exit(49);
+    }
 
     for (long unsigned int i = 0; i < type.size(); i++) {
         string x = "";
@@ -449,7 +478,18 @@ void MPIInit(){
 
     output.seekp(posInit);
 
-    output.write("\tMPI_Init(&argc,&argv);\n\tMPI_Comm_size(MPI_COMM_WORLD,&__numprocs);\n\tMPI_Comm_rank(MPI_COMM_WORLD,&__taskid);\n\tDeclareTypesMPI();\nif (__taskid == 0) {\n", 151);
+    if (conArgc && conArgv) {
+        output.write("\tMPI_Init(&argc,&argv);\n\tMPI_Comm_size(MPI_COMM_WORLD,&__numprocs);\n\tMPI_Comm_rank(MPI_COMM_WORLD,&__taskid);\n\tDeclareTypesMPI();\nif (__taskid == 0) {\n", 151);
+    }
+    else if (conArgc) {
+        output.write("\tMPI_Init(&argc, NULL);\n\tMPI_Comm_size(MPI_COMM_WORLD,&__numprocs);\n\tMPI_Comm_rank(MPI_COMM_WORLD,&__taskid);\n\tDeclareTypesMPI();\nif (__taskid == 0) {\n", 151);
+    }
+    else if (conArgv) {
+        output.write("\tMPI_Init(NULL, &argv);\n\tMPI_Comm_size(MPI_COMM_WORLD,&__numprocs);\n\tMPI_Comm_rank(MPI_COMM_WORLD,&__taskid);\n\tDeclareTypesMPI();\nif (__taskid == 0) {\n", 151);
+    }
+    else {
+        output.write("\tMPI_Init(NULL , NULL);\n\tMPI_Comm_size(MPI_COMM_WORLD,&__numprocs);\n\tMPI_Comm_rank(MPI_COMM_WORLD,&__taskid);\n\tDeclareTypesMPI();\nif (__taskid == 0) {\n", 151);
+    }
     
     output.seekp(posActual);
     statementZone = 1;
@@ -1460,6 +1500,7 @@ void MPIDeclareCluster() {
 
                             campos.at(n_structs).push_back({});
                             campos.at(n_structs).at(n_campos).push_back(translateTypes(name));
+                            campos.at(n_structs).at(n_campos).push_back(name);
                             name = "";
                             name += declare[i];
                             continue;
@@ -1518,18 +1559,6 @@ void MPIDeclareCluster() {
         n_structs++;
     }
 
-    //PRINT PARA COMPRPOBAR QUE LOS TIPOS SE METEN BIEN
-    //BORRAR
-    for (unsigned long int i = 0; i < tiposMPI.size(); i++) {
-        fprintf(stderr, "NUEVO TIPO:\n");
-
-        for (unsigned long int j = 0; j < tiposMPI.at(i).size(); j++) {
-            fprintf(stderr, "%s ", tiposMPI.at(i).at(j).data());
-        }
-
-        fprintf(stderr, "\n");
-    }
-
     for (unsigned long int i = 0; i < campos.size(); i++) {
         string declaracion;
         int posTipo = tiposMPI.size() - campos.size() + i;
@@ -1543,18 +1572,19 @@ void MPIDeclareCluster() {
         int it = 0;
         
         for (unsigned long int j = 0; j < campos.at(i).size(); j++) {
-            for (unsigned long int k = 1; k < campos.at(i).at(j).size(); k++) {
+            for (unsigned long int k = 2; k < campos.at(i).at(j).size(); k++) {
                 string newTypeMPI = translateTypes(campos.at(i).at(j).at(0));
-                declaracion += ("__blocklengths_" + tiposMPI.at(posTipo).at(1) + "[" + std::to_string(it) + "] = sizeof(" + campos.at(i).at(j).at(0) + ");\n");
+                declaracion += ("__blocklengths_" + tiposMPI.at(posTipo).at(1) + "[" + std::to_string(it) + "] = 1;\n");
                 declaracion += ("__old_types_" + tiposMPI.at(posTipo).at(1) + "[" + std::to_string(it) + "] = " + newTypeMPI + ";\n");
-                declaracion += ("MPI_Type_get_extent(" + newTypeMPI + ", &__lb_" + tiposMPI.at(posTipo).at(1) + ", &__extent_" + tiposMPI.at(posTipo).at(1) + ");\n");
                 
                 if (it == 0) {
+                    declaracion += ("MPI_Type_get_extent(" + newTypeMPI + ", &__lb_" + tiposMPI.at(posTipo).at(1) + ", &__extent_" + tiposMPI.at(posTipo).at(1) + ");\n");
                     declaracion += ("__disp_" + tiposMPI.at(posTipo).at(1) + "[" + std::to_string(it) + "] = __lb_" + tiposMPI.at(posTipo).at(1) + ";\n");
                 }
                 else {
                     declaracion += ("__disp_" + tiposMPI.at(posTipo).at(1) + "[" + std::to_string(it) + "] = __disp_" + tiposMPI.at(posTipo).at(1) + 
                     "[" + std::to_string(it - 1) + "] + __extent_" + tiposMPI.at(posTipo).at(1) + ";\n");
+                    declaracion += ("MPI_Type_get_extent(" + newTypeMPI + ", &__lb_" + tiposMPI.at(posTipo).at(1) + ", &__extent_" + tiposMPI.at(posTipo).at(1) + ");\n");
                 }
 
                 it++;
@@ -1575,4 +1605,4 @@ void MPIDeclareCluster() {
     declare = NULL;
 }
 
-#endif 
+#endif

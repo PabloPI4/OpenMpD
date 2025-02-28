@@ -1,14 +1,21 @@
 Struct item: campo1
 Struct item: campo2
-Struct item: campo3
-Struct item: campo4
+Inserted: prueba in scope 1
+Struct item 2: campo1
+Struct item 2: campo2
 Debug: TYPEDEF_STRUCT Debug: t_pru Debug: 
 Inserted Function: main in scope 1
 New ScopeTable with id 1.1 created
-Debug: INT Debug: x Debug: 
+Inserted: STRUCT_prueba in scope 1.1
+New ScopeTable with id 1.1.1 created
+Debug: INT Debug: i Debug: 
+ScopeTable 1.1.1 fully destructed.
+New ScopeTable with id 1.1.2 created
+Debug: INT Debug: i Debug: 
+ScopeTable 1.1.2 fully destructed.
 ScopeTable 1.1 fully destructed.
 ScopeTable 1 fully destructed.
 
-Total lines: 19
+Total lines: 25
 Total errors: 0
 
