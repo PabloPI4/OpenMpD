@@ -68,7 +68,6 @@ void * (*exprParse)(const char*) = NULL;
 extern void addArg(const char *arg);
 extern void MPIAlloc();
 extern void MPIBroad();
-extern void MPIScatterChunk();
 extern void MPITask();
 extern void MPIScatterHalo();
 extern void MPIUpdateHalo();
@@ -85,6 +84,7 @@ extern void aumentarAllReduction();
 extern void aumentarReduction();
 extern void IncludeString();
 extern void MPIDeclareCluster();
+extern void MPIScatter();
 
 %}
 
@@ -2475,7 +2475,7 @@ parallel_clause : if_parallel_clause
 				
 cluster_clause : alloc_clause
 			   | broad_clause
-			   | {enScatter = 1; chunk_pos = 0; aumentarScatter();} scatter_clause {enScatter = 0;}
+			   | {enScatter = 1; chunk_pos = 0; aumentarScatter();} scatter_clause {enScatter = 0; MPIScatter(); if (!includeStringDone){includeStringDone = 1; IncludeString();}}
 			   | {enGather = 1; chunk_pos = 0; aumentarGather(); enGatherInst = 1;} gather_clause {enGatherInst = 0; if (!includeStringDone){includeStringDone = 1; IncludeString();}}
 			   | {enAllGather = 1; chunk_pos = 0; aumentarAllGather(); enAllGatherInst = 1;} allgather_clause {enAllGatherInst = 0; if (!includeStringDone){includeStringDone = 1; IncludeString();}}
 			   | halo_clause
@@ -3172,7 +3172,7 @@ alloc_clause : ALLOC '(' var_list_cluster ')' { MPIAlloc(); };
 
 broad_clause : BROAD { } '(' var_list_cluster ')' { MPIBroad(); };
 
-scatter_clause : SCATTER { } '(' var_chunk_list_cluster ')'  { if(chunk == 1){ MPIScatterChunk(); }} ;
+scatter_clause : SCATTER { } '(' var_chunk_list_cluster ')'  {} ;
 			   
 halo_clause : HALO { } '(' var_chunk ')'
 	{ 

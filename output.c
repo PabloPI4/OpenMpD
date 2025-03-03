@@ -1,4 +1,4 @@
-                   
+#include <string.h>
 #include <assert.h>
 #include <mpi.h>
 #include <omp.h>
@@ -7,35 +7,64 @@
 void DeclareTypesMPI();
 
 int __taskid = -1, __numprocs = -1;
-    typedef struct prueba {
-        int campo1;
-        char campo2;
-    } t_pru;
-MPI_Datatype prueba_type_MPI;
-
 int main() {
-    struct prueba x[10];
-    
+    int *x;
+
 	MPI_Init(NULL , NULL);
 	MPI_Comm_size(MPI_COMM_WORLD,&__numprocs);
 	MPI_Comm_rank(MPI_COMM_WORLD,&__taskid);
 	DeclareTypesMPI();
 if (__taskid == 0) {
-    x[0].campo1 = 1;
-    x[0].campo2 = 'a';
-    for (int i = 1; i < 10; i++) {
-        x[i].campo1 = x[i - 1].campo1 + 1;
-        x[i].campo2 = x[i - 1].campo2 + 1;
+    x = (int *) malloc(sizeof(int) * 10);
+    for (int i = 0; i < 10; i++) {
+        x[i] = i;
     }
 
 }
-MPI_Bcast(x, 10, prueba_type_MPI, 0, MPI_COMM_WORLD);
+if (__taskid != 0) {
+	x = (int *) malloc(10 * sizeof(int ));
+}
 
 	        {
-	        for (int i = 0; i < 10; i++) {
-	            printf("x.campo1 = %d, x.campo2 = %c\n", x[i].campo1, x[i].campo2);
+int __iter;
+int __start;
+int __end;
+__iter = (((10) - (0)) / __numprocs);
+if (__taskid < (((10) - (0)) % __numprocs))
+	__iter++;
+__start = ((0) + __iter * __taskid);
+if (__taskid >= (((10) - (0)) % __numprocs))
+	__start += (((10) - (0)) % __numprocs);
+__end = __start + __iter;
+if (__taskid == (__numprocs - 1)) assert(__end == (10));
+
+	for (int __distrib = __start; __distrib < __end; __distrib++){
+	            fprintf(stderr, "x[%d] = %d\n", __distrib, x[__distrib]);
 	        }
 	    }
+{
+	int __offset = 0;
+	int *__displs = (int *) malloc(sizeof(int) * __numprocs);
+	int *__counts = (int *) malloc(sizeof(int) * __numprocs);
+	int *__xAux = (int *) malloc(sizeof(int)*10);
+
+	while (__offset < 10) {
+		for (int __gather = 0; __gather < __numprocs; __gather++) {
+			if (__offset < 10) {
+				__counts[__gather] = 1;
+				__displs[__gather] = __offset;
+				__offset += 1;
+			}
+			else {
+				__counts[__gather] = 0;
+				__displs[__gather] = 10;
+			}
+		}
+		MPI_Allgatherv(x+__displs[__taskid], __counts[__taskid], MPI_INT, __xAux, __counts, __displs, MPI_INT, MPI_COMM_WORLD);
+	}
+		memcpy(x, __xAux, sizeof(int)*10);
+}
+
 if (__taskid == 0) {
 
 }
@@ -45,20 +74,4 @@ if (__taskid == 0) {
 
 
 void DeclareTypesMPI() {
-int __blocklengths_prueba[2];
-MPI_Datatype __old_types_prueba[2];
-MPI_Aint __disp_prueba[2];
-MPI_Aint __lb_prueba;
-MPI_Aint __extent_prueba;
-__blocklengths_prueba[0] = 1;
-__old_types_prueba[0] = MPI_INT;
-MPI_Type_get_extent(MPI_INT, &__lb_prueba, &__extent_prueba);
-__disp_prueba[0] = __lb_prueba;
-__blocklengths_prueba[1] = 1;
-__old_types_prueba[1] = MPI_CHAR;
-__disp_prueba[1] = __disp_prueba[0] + __extent_prueba;
-MPI_Type_get_extent(MPI_CHAR, &__lb_prueba, &__extent_prueba);
-MPI_Type_create_struct(2, __blocklengths_prueba, __disp_prueba, __old_types_prueba, &prueba_type_MPI);
-MPI_Type_commit(&prueba_type_MPI);
-
 }

@@ -5,11 +5,8 @@ ScopeTable # 1.1.2
  29 --> | < i , INT > |
 
 ScopeTable # 1.1
- 6 --> | < x , Array Symbol , STRUCT_prueba < Array Size: 10 >  > |
- 23 --> | < STRUCT_prueba , Struct Symbol , STRUCT_prueba , < x , IDENTIFIER , STRUCT_prueba > > |
+ 6 --> | < x , Pointer Symbol , INT > |
 
 ScopeTable # 1
- 7 --> | < prueba , Struct Symbol , STRUCT_prueba , < campo1 , IDENTIFIER , INT >, < campo2 , IDENTIFIER , CHAR > > |
- 30 --> | < t_pru , TYPEDEF_STRUCT > |
  33 --> | < main , Function Symbol , INT , Parameter List:  > |
 
