@@ -38,6 +38,7 @@ extern string DeclareTypes;
 extern int enDeclare;
 extern int tamDeclare;
 extern char *declare;
+extern string scheduleDist;
 
 extern void MPIEmpezarSecuencial();
 extern void finSecuencial();
@@ -187,6 +188,13 @@ void updateText() {
         }
         //Si se han leido el mismo numero de llaves de apertura que de cierre estando en distribute y estos dos son mayor que 0, entonces se cierra el distribute
         if (enDistribute && dist_n_llaves == -100) {
+            if (scheduleDist.size() > 0) {
+                output << "\t}" << endl;
+                scheduleDist = "";
+            }
+
+            output << "}" << endl;
+
             if (enReductionDistribute) {
                 calcularReduceFinal(false);
                 enReductionCluster = 0;
@@ -313,23 +321,128 @@ void calcularDistribute(string *ini, string *fin, char **linea) {
     distVar[guardarFin.size()] = '\0';
     char * pointerInc;
 
-    if ((pointerInc = strstr(guardarInc, distVar)) == NULL) {
-        (*linea) = (char *) realloc((*linea), 49 + operacion.size() + guardIncCont);
+    if (scheduleDist.size() > 0) {
+        int menorOmayor;
 
-        strcpy((*linea), "for (int __distrib = __start; __distrib ");
-        strncpy((*linea) + 40, operacion.data(), operacion.size());
-        strcpy((*linea) + 40 + operacion.size(), " __end; ");
-        strcpy((*linea) + 48 + operacion.size(), guardarInc);
+        if ((pointerInc = strstr(guardarInc, distVar)) == NULL) {
+            (*linea) = (char *) realloc((*linea), 111 + operacion.size() + scheduleDist.size() + guardIncCont);
+    
+            strcpy((*linea), "for (int __distrib = __distribSched; __distrib ");
+            strncpy((*linea) + 47, operacion.data(), operacion.size());
+            strcpy((*linea) + 47 + operacion.size(), " __distribSched ");
+            if (strstr(operacion.data(), "<") != NULL) {
+                strcpy((*linea) + 63 + operacion.size(), "+ ");
+                menorOmayor = 0;
+            }
+            else if (strstr(operacion.data(), ">") != NULL) {
+                strcpy((*linea) + 63 + operacion.size(), "- ");
+                menorOmayor = 1;
+            }
+            else {
+                fprintf(stderr, "Operacion del for no valida para distribute\n");
+                exit(238);
+            }
+            strncpy((*linea) + 65 + operacion.size(), scheduleDist.data(), scheduleDist.size());
+            strcpy((*linea) + 65 + operacion.size() + scheduleDist.size(), "; ");
+            strcpy((*linea) + 67 + operacion.size() + scheduleDist.size(), guardarInc);
+            if (strstr(operacion.data(), "<=") != NULL) {
+                menorOmayor = 2;
+            }
+            else if (strstr(operacion.data(), ">=") != NULL) {
+                menorOmayor = 3;
+            }
+
+            if (menorOmayor == 0) {
+                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(guardarInc), "if(__distrib >= __end) {continue;}");
+            }
+            else if (menorOmayor == 1) {
+                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(guardarInc), "if(__distrib <= __end) {continue;}");
+            }
+            else if (menorOmayor == 2) {
+                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(guardarInc), "if(__distrib > __end) {continue;}");
+            }
+            else {
+                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(guardarInc), "if(__distrib < __end) {continue;}");
+            }
+        }
+        else {
+            (*linea) = (char *) realloc((*linea), 111 + operacion.size() + scheduleDist.size() + guardIncCont - strlen(distVar));
+            
+            strcpy((*linea), "for (int __distrib = __distribSched; __distrib ");
+            strncpy((*linea) + 47, operacion.data(), operacion.size());
+            strcpy((*linea) + 47 + operacion.size(), " __distribSched ");
+            if (strstr(operacion.data(), "<") != NULL) {
+                strcpy((*linea) + 63 + operacion.size(), "+ ");
+                menorOmayor = 0;
+            }
+            else if (strstr(operacion.data(), ">") != NULL) {
+                strcpy((*linea) + 63 + operacion.size(), "- ");
+                menorOmayor = 1;
+            }
+            else {
+                fprintf(stderr, "Operacion del for no valida para distribute\n");
+                exit(238);
+            }
+            strncpy((*linea) + 65 + operacion.size(), scheduleDist.data(), scheduleDist.size());
+            strcpy((*linea) + 65 + operacion.size() + scheduleDist.size(), "; ");
+            strncpy((*linea) + 67 + operacion.size() + scheduleDist.size(), guardarInc, pointerInc - guardarInc);
+            strcpy((*linea) + 67 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc), "__distrib");
+            strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc), pointerInc + strlen(distVar));
+            if (strstr(operacion.data(), "<=") != NULL) {
+                menorOmayor = 2;
+            }
+            else if (strstr(operacion.data(), ">=") != NULL) {
+                menorOmayor = 3;
+            }
+
+            if (menorOmayor == 0) {
+                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(pointerInc + strlen(distVar)), "if(__distrib >= __end) {continue;}");
+            }
+            else if (menorOmayor == 1) {
+                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(pointerInc + strlen(distVar)), "if(__distrib <= __end) {continue;}");
+            }
+            else if (menorOmayor == 2) {
+                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(pointerInc + strlen(distVar)), "if(__distrib > __end) {continue;}");
+            }
+            else {
+                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(pointerInc + strlen(distVar)), "if(__distrib < __end) {continue;}");
+            }
+        }
+
+        guardarLineasDist += ("\tfor (int __distribSched = __start; __distribSched " + operacion + " __end; __distribSched ");
+        
+        if (strstr(operacion.data(), "<") != NULL) {
+            guardarLineasDist += ("+= __iter");
+        }
+        else if (strstr(operacion.data(), ">") != NULL) {
+            guardarLineasDist += ("-= __iter");
+        }
+        else {
+            fprintf(stderr, "Operacion del for no valida para distribute\n");
+            exit(238);
+        }
+
+        guardarLineasDist += ") {\n";
     }
     else {
-        (*linea) = (char *) realloc((*linea), 58 + operacion.size() + guardIncCont - strlen(distVar));
-        
-        strcpy((*linea), "for (int __distrib = __start; __distrib ");
-        strncpy((*linea) + 40, operacion.data(), operacion.size());
-        strcpy((*linea) + 40 + operacion.size(), " __end; ");
-        strncpy((*linea) + 48 + operacion.size(), guardarInc, pointerInc - guardarInc);
-        strcpy((*linea) + 48 + operacion.size() + (pointerInc - guardarInc), "__distrib");
-        strcpy((*linea) + 57 + operacion.size() + (pointerInc - guardarInc), pointerInc + strlen(distVar));
+        if ((pointerInc = strstr(guardarInc, distVar)) == NULL) {
+            (*linea) = (char *) realloc((*linea), 49 + operacion.size() + guardIncCont);
+    
+            strcpy((*linea), "for (int __distrib = __start; __distrib ");
+            strncpy((*linea) + 40, operacion.data(), operacion.size());
+            strcpy((*linea) + 40 + operacion.size(), " __end; ");
+            strcpy((*linea) + 48 + operacion.size(), guardarInc);
+        }
+        else {
+            (*linea) = (char *) realloc((*linea), 58 + operacion.size() + guardIncCont - strlen(distVar));
+            
+            strcpy((*linea), "for (int __distrib = __start; __distrib ");
+            strncpy((*linea) + 40, operacion.data(), operacion.size());
+            strcpy((*linea) + 40 + operacion.size(), " __end; ");
+            strncpy((*linea) + 48 + operacion.size(), guardarInc, pointerInc - guardarInc);
+            strcpy((*linea) + 48 + operacion.size() + (pointerInc - guardarInc), "__distrib");
+            strcpy((*linea) + 57 + operacion.size() + (pointerInc - guardarInc), pointerInc + strlen(distVar));
+        }
     }
 }
 

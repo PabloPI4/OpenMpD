@@ -5,17 +5,16 @@ int main() {
     int *x;
 
     x = (int *) malloc(sizeof(int) * 10);
-    for (int i = 0; i < 10; i++) {
-        x[i] = i;
-    }
 
-    #pragma omp cluster alloc(x[10]) allgather(x[10]:chunk(1))
+    #pragma omp cluster alloc(x[10]) gather(x[10]:chunk(1))
     {
-        #pragma omp cluster teams distribute
+        #pragma omp cluster distribute dist_schedule(static, 1)
         for (int i = 0; i < 10; i++) {
-            fprintf(stderr, "x[%d] = %d\n", i, x[i]);
+            x[i] = i;
         }
     }
 
-    return 0;
+    for (int i = 0; i < 10; i++) {
+        fprintf(stderr, "en 0, x[%d] = %d\n", i, x[i]);
+    }
 }

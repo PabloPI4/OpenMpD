@@ -26,6 +26,7 @@ std::vector<const char *> argsReduceOpsDistribute;
 std::vector<std::vector<const char *>> argsReduceVarsDistribute;
 std::vector<const char *> argsAllReduceOpsDistribute;
 std::vector<std::vector<const char *>> argsAllReduceVarsDistribute;
+string scheduleDist = "";
 
 string DeclareTypes = "void DeclareTypesMPI() {\n";
 
@@ -761,14 +762,24 @@ void MPITaskEnd(){
 }
 
 void MPIDistribute(string ini, string fin) {
-    string distribute =
-        "int __iter;\nint __start;\nint __end;\n__iter = (((" + fin + ") - (" + ini + ")) / __numprocs);\n" +
-        "if (__taskid < (((" + fin + ") - (" + ini + ")) % __numprocs))\n" +
-        "\t__iter++;\n" +
-        "__start = ((" + ini + ") + __iter * __taskid);\n" +
-        "if (__taskid >= (((" + fin + ") - (" + ini + ")) % __numprocs))\n" +
-        "\t__start += (((" + fin + ") - (" + ini + ")) % __numprocs);\n" +
-        "__end = __start + __iter;\nif (__taskid == (__numprocs - 1)) assert(__end == (" + fin + "));\n";
+    string distribute;
+
+    if (scheduleDist.size() > 0) {
+        distribute =
+            "{\nint __iter;\nint __start;\nint __end;\n__iter = __numprocs * " + scheduleDist + ";\n" +
+            "__start = " + ini + " + __taskid * " + scheduleDist + ";\n" +
+            "__end = " + fin + ";\n";
+    }
+    else {
+        distribute =
+            "{\nint __iter;\nint __start;\nint __end;\n__iter = (((" + fin + ") - (" + ini + ")) / __numprocs);\n" +
+            "if (__taskid < (((" + fin + ") - (" + ini + ")) % __numprocs))\n" +
+            "\t__iter++;\n" +
+            "__start = ((" + ini + ") + __iter * __taskid);\n" +
+            "if (__taskid >= (((" + fin + ") - (" + ini + ")) % __numprocs))\n" +
+            "\t__start += (((" + fin + ") - (" + ini + ")) % __numprocs);\n" +
+            "__end = __start + __iter;\nif (__taskid == (__numprocs - 1)) assert(__end == (" + fin + "));\n";
+    }
     
     output << distribute << endl;
 }

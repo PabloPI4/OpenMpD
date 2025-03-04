@@ -10,6 +10,6 @@ ScopeTable 1.1.2 fully destructed.
 ScopeTable 1.1 fully destructed.
 ScopeTable 1 fully destructed.
 
-Total lines: 18
+Total lines: 16
 Total errors: 0
 

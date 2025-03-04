@@ -61,6 +61,7 @@ int chunk_pos;
 int enDeclare = 0;
 
 extern int dist_n_llaves;
+extern string scheduleDist;
 
 void * (*exprParse)(const char*) = NULL;
 
@@ -215,6 +216,17 @@ var_chunk_list_cluster : variable
                             }
                           }
                         var_chunk_list_cluster_aux
+
+dist_schedule_clause_cluster : DIST_SCHEDULE '(' STATIC ',' variable ')'
+                            {
+                              if (scheduleDist.size() != 0) {
+                                fprintf(stderr, "Doble shcedule en cluster distribute\n");
+                                exit(245);
+                              }
+                              
+                              scheduleDist = $5;
+                            }
+                            ;
 
 openmp_directive : parallel_directive
                  | metadirective_directive
@@ -2525,7 +2537,7 @@ cluster_distribute_clause : private_clause
                   	  | firstprivate_clause 
                   	  | lastprivate_distribute_clause
                   	  | collapse_clause
-                  	  | dist_schedule_clause
+                  	  | dist_schedule_clause_cluster
                  	  | allocate_clause
                     | {enReductionDistribute = 1;} reduction_clause_cluster
                     | {enAllReductionDistribute = 1;} allreduction_clause_cluster
@@ -2549,7 +2561,7 @@ cluster_teams_distribute_clause : if_target_clause
                                 | shared_clause
                                 | lastprivate_distribute_clause
                                 | collapse_clause
-                                | dist_schedule_clause
+                                | dist_schedule_clause_cluster
                                 | {enReductionDistribute = 1;} reduction_clause_cluster
                                 | {enAllReductionDistribute = 1;} allreduction_clause_cluster
                                 ;
