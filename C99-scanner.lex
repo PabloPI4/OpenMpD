@@ -69,7 +69,7 @@ extern int error_count;
 					char *busqueda = line;
 					string newRed;
 
-					if (strstr(line, "cluster") == NULL) {
+					if (strstr(line, "cluster") == NULL && (!enCluster || strstr(line, "distribute") == NULL)) {
 						if (enDistribute && enFor == 0) {
 							guardarLineasDist += '#';
 							guardarLineasDist += line;
@@ -195,14 +195,17 @@ extern int error_count;
 "volatile"		{ count(); return(VOLATILE); }
 "while"			{ count(); return(WHILE); }
 
-{L}({L}|{D})*		{
+{L}({L}|{D})* {
+	logFile << "LEYENDO: " << yytext << endl;
 	count();
 	SymbolInfo *s = table.getSymbolInfo(yytext);
 	if(s != NULL && s->getSymIsType()){
+		logFile << "SE METE EN USER_DEFINED" << endl;
 		yylval.sym = new SymbolInfo(yytext, (char *) yytext);
 		return USER_DEFINED;
 	}
 	else{
+		logFile << "SE METE EN IDENTIFIER" << endl;
 		SymbolInfo *s = new SymbolInfo(yytext, (char *)"IDENTIFIER");
 		yylval.sym = s;
 		if (!MPIInitDone) {

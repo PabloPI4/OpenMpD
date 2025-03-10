@@ -144,7 +144,10 @@ comment         [\/\/].*
 [!c*]$omp       { ; }
 #pragma         { ; }
 omp             { ; }
-parallel        { return PARALLEL; }
+parallel        { if (current_string.size() != 0) {
+                      openmp_lval.stype = strdup(current_string.c_str());
+                      current_string.clear();
+                  } return PARALLEL; }
 metadirective   { return METADIRECTIVE; }
 task            { return TASK; }
 if              { yy_push_state(IF_STATE); return IF; }
@@ -155,18 +158,39 @@ num_threads     { return NUM_THREADS; }
 num_teams       { return NUM_TEAMS; }
 thread_limit    { return THREAD_LIMIT; }
 default         { yy_push_state(DEFAULT_STATE); return DEFAULT; }
-private         { yy_push_state(PRIVATE_STATE); return PRIVATE; }
-firstprivate    { yy_push_state(FIRSTPRIVATE_STATE); return FIRSTPRIVATE; }
-shared          { yy_push_state(SHARED_STATE); return SHARED; }
-none            { return NONE; }
+private         { yy_push_state(PRIVATE_STATE); if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return PRIVATE; }
+firstprivate    { yy_push_state(FIRSTPRIVATE_STATE); if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return FIRSTPRIVATE; }
+shared          { yy_push_state(SHARED_STATE); if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return SHARED; }
+none            { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return NONE; }
 reduction       { yy_push_state(REDUCTION_STATE); return REDUCTION; }
 copyin          { yy_push_state(COPYIN_STATE); return COPYIN; }
 proc_bind       { yy_push_state(PROC_BIND_STATE); return PROC_BIND; }
 allocate        { yy_push_state(ALLOCATE_STATE); return ALLOCATE; }
-close           { return CLOSE; }
-spread          { return SPREAD; } /* master should already be recognized */
+close           { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return CLOSE; }
+spread          { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return SPREAD; } /* master should already be recognized */
 teams           { return TEAMS; }
-master          { return MASTER; } /*YAYING */
+master          { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return MASTER; } /*YAYING */
 for             { return FOR; }
 do              { return DO; }
 lastprivate     { yy_push_state(LASTPRIVATE_STATE); return LASTPRIVATE; }
@@ -320,7 +344,10 @@ allreduction 			  { yy_push_state(REDUCTION_STATE); return ALLREDUCTION; }
 <ALLOCATE_STATE>{blank}*                              { ; }
 <ALLOCATE_STATE>.                                     { yy_push_state(EXPR_STATE); current_string = yytext[0]; }
 
-<IF_STATE>parallel{blank}*/:                { return PARALLEL; }
+<IF_STATE>parallel{blank}*/:                { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return PARALLEL; }
 <IF_STATE>simd{blank}*/:                    { return SIMD; }
 <IF_STATE>task{blank}*/:                    { return TASK; }
 <IF_STATE>taskloop{blank}*/:                { return TASKLOOP; }
@@ -337,32 +364,65 @@ allreduction 			  { yy_push_state(REDUCTION_STATE); return ALLREDUCTION; }
 <IF_STATE>.                                 { yy_push_state(EXPR_STATE); current_string = yytext[0]; }
 
 
-<PROC_BIND_STATE>master                     { return MASTER; }
-<PROC_BIND_STATE>close                      { return CLOSE; }
-<PROC_BIND_STATE>spread                     { return SPREAD; }
+<PROC_BIND_STATE>master                     { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return MASTER; }
+<PROC_BIND_STATE>close                      { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return CLOSE; }
+<PROC_BIND_STATE>spread                     { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return SPREAD; }
 <PROC_BIND_STATE>"("                        { return '('; }
 <PROC_BIND_STATE>")"                        { yy_pop_state(); return ')'; }
 <PROC_BIND_STATE>{blank}*                   { ; }
 <PROC_BIND_STATE>.                          { return -1; }
 
-<DEFAULT_STATE>shared                       { return SHARED; }
-<DEFAULT_STATE>none                         { return NONE; }
-<DEFAULT_STATE>firstprivate                 { return FIRSTPRIVATE; }
-<DEFAULT_STATE>private                      { return PRIVATE; }
+<DEFAULT_STATE>shared                       { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return SHARED; }
+<DEFAULT_STATE>none                         { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return NONE; }
+<DEFAULT_STATE>firstprivate                 { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return FIRSTPRIVATE; }
+<DEFAULT_STATE>private                      { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return PRIVATE; }
 <DEFAULT_STATE>"("                          { return '('; }
 <DEFAULT_STATE>")"                          { yy_pop_state(); return ')'; }
 <DEFAULT_STATE>{blank}*                     { ; }
 <DEFAULT_STATE>.                            { yy_push_state(INITIAL); unput(yytext[0]); } /* So far, only for default in metadirective meaning that a new directive is coming up. */
 
-<ORDER_STATE>concurrent                     { return CONCURRENT; }
+<ORDER_STATE>concurrent                     { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             }return CONCURRENT; }
 <ORDER_STATE>"("                            { return '('; }
 <ORDER_STATE>")"                            { yy_pop_state(); return ')'; }
 <ORDER_STATE>{blank}*                       { ; }
 <ORDER_STATE>.                              { yy_push_state(INITIAL); }
 
-<REDUCTION_STATE>inscan/{blank}*,           { return MODIFIER_INSCAN; }
-<REDUCTION_STATE>task/{blank}*,             { return MODIFIER_TASK; }
-<REDUCTION_STATE>default/{blank}*,          { return MODIFIER_DEFAULT; }
+<REDUCTION_STATE>inscan/{blank}*,           { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             }return MODIFIER_INSCAN; }
+<REDUCTION_STATE>task/{blank}*,             { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             }return MODIFIER_TASK; }
+<REDUCTION_STATE>default/{blank}*,          { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             }return MODIFIER_DEFAULT; }
 <REDUCTION_STATE>"("                        { return '('; }
 <REDUCTION_STATE>")"                        { yy_pop_state(); return ')'; }
 <REDUCTION_STATE>","                        { return ','; }
@@ -413,7 +473,10 @@ allreduction 			  { yy_push_state(REDUCTION_STATE); return ALLREDUCTION; }
 <COPYIN_STATE>{blank}*                      { ; }
 <COPYIN_STATE>.                             { yy_push_state(EXPR_STATE); current_string = yytext[0]; }
 
-<LASTPRIVATE_STATE>conditional/{blank}*:    { return MODIFIER_CONDITIONAL; }
+<LASTPRIVATE_STATE>conditional/{blank}*:    { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return MODIFIER_CONDITIONAL; }
 <LASTPRIVATE_STATE>"("                      { return '('; }
 <LASTPRIVATE_STATE>")"                      { yy_pop_state(); return ')'; }
 <LASTPRIVATE_STATE>":"                      { return ':'; }
@@ -422,17 +485,35 @@ allreduction 			  { yy_push_state(REDUCTION_STATE); return ALLREDUCTION; }
 
 <LINEAR_STATE>"("                           { return '('; }
 <LINEAR_STATE>")"                           { yy_pop_state(); return ')'; }
-<LINEAR_STATE>val/{blank}*"("               { return MODOFIER_VAL; }
-<LINEAR_STATE>ref/{blank}*                  { return MODOFIER_REF; }
-<LINEAR_STATE>uval/{blank}*                 { return MODOFIER_UVAL; }
+<LINEAR_STATE>val/{blank}*"("               { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             }return MODOFIER_VAL; }
+<LINEAR_STATE>ref/{blank}*                  { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             }return MODOFIER_REF; }
+<LINEAR_STATE>uval/{blank}*                 { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             }return MODOFIER_UVAL; }
 <LINEAR_STATE>":"                           { return ':'; }
 <LINEAR_STATE>{blank}*                      { ; }
 <LINEAR_STATE>.                             { yy_push_state(EXPR_STATE); current_string = yytext[0]; }
 
 
-<SCHEDULE_STATE>monotonic                   { return MODIFIER_MONOTONIC; }
-<SCHEDULE_STATE>nonmonotonic                { return MODIFIER_NONMONOTONIC; }
-<SCHEDULE_STATE>simd                        { return MODIFIER_SIMD; }
+<SCHEDULE_STATE>monotonic                   { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return MODIFIER_MONOTONIC; }
+<SCHEDULE_STATE>nonmonotonic                { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return MODIFIER_NONMONOTONIC; }
+<SCHEDULE_STATE>simd                        { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return MODIFIER_SIMD; }
 <SCHEDULE_STATE>static                      { return STATIC; }
 <SCHEDULE_STATE>dynamic                     { return DYNAMIC; }
 <SCHEDULE_STATE>guided                      { return GUIDED; }
@@ -483,7 +564,10 @@ allreduction 			  { yy_push_state(REDUCTION_STATE); return ALLREDUCTION; }
 <DIST_SCHEDULE_STATE>.                      { yy_push_state(EXPR_STATE); current_string = yytext[0]; }
 
 <BIND_STATE>teams                           { return TEAMS; }
-<BIND_STATE>parallel                        { return PARALLEL; }
+<BIND_STATE>parallel                        { if (current_string.size() != 0) {
+                                                 openmp_lval.stype = strdup(current_string.c_str());
+                                                 current_string.clear();
+                                             } return PARALLEL; }
 <BIND_STATE>thread                          { return THREAD; }
 <BIND_STATE>"("                             { return '('; }
 <BIND_STATE>")"                             { yy_pop_state(); return ')'; }

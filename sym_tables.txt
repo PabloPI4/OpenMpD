@@ -1,11 +1,8 @@
 ScopeTable # 1.1.1
  29 --> | < i , INT > |
 
-ScopeTable # 1.1.2
- 29 --> | < i , INT > |
-
 ScopeTable # 1.1
- 6 --> | < x , Pointer Symbol , INT > |
+ 8 --> | < valores , Pointer Symbol , INT > |
 
 ScopeTable # 1
  33 --> | < main , Function Symbol , INT , Parameter List:  > |

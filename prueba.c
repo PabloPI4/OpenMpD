@@ -1,20 +1,13 @@
-#include <omp.h>
-#include <stdio.h>
-
 int main() {
-    int *x;
+    int *valores;
 
-    x = (int *) malloc(sizeof(int) * 10);
+    valores = (int *) malloc(sizeof(int) * 10);
 
-    #pragma omp cluster alloc(x[10]) gather(x[10]:chunk(1))
+    #pragma omp cluster alloc(valores[10])
     {
-        #pragma omp cluster distribute dist_schedule(static, 1)
+        #pragma omp distribute simd collapse(x) firstprivate(y)
         for (int i = 0; i < 10; i++) {
-            x[i] = i;
+            valores[i] = i;
         }
-    }
-
-    for (int i = 0; i < 10; i++) {
-        fprintf(stderr, "en 0, x[%d] = %d\n", i, x[i]);
     }
 }

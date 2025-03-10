@@ -362,7 +362,7 @@ type_specifier
 			posVarsInit = output.tellp();
 			output.write("                                                            \n", 61);
 		} } IMAGINARY     { $$ = new SymbolInfo("imaginary", "IMAGINARY"); }
-	| USER_DEFINED  { $$ = $1; }
+	| USER_DEFINED  { $$ = new SymbolInfo("user_defined", "USER_DEFINED"); }
     | struct_or_union_specifier  { $$ = $1; }
     | enum_specifier             { $$ = $1; }
     ;
@@ -484,7 +484,7 @@ function_specifier
 
 declarator
 	: pointer direct_declarator { $2->setIsPointer(true); $$ = $2; }
-	| direct_declarator	{ $$ = $1; }
+	| direct_declarator	{ $$ = $1;}
 	;
 
 
@@ -727,8 +727,8 @@ jump_statement
 	;
 
 translation_unit
-	: {output.write("                   \n                                    \n", 57); } external_declaration 
-	| translation_unit external_declaration
+	: {output.write("                   \n                                    \n", 57);} external_declaration
+	| translation_unit external_declaration {logFile << "SE METE AQUI" << endl;}
 	;
 
 external_declaration

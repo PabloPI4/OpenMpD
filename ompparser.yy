@@ -47,6 +47,8 @@ extern void MPIInit();
 int includeStringDone = 0;
 int enCluster = 0;
 int enDistribute = 0;
+int enDistributeExtendido = 0;
+int meterEnClause = 0;
 int enReductionCluster = 0;
 int enReductionDistribute = 0;
 int enAllReductionCluster = 0;
@@ -62,6 +64,7 @@ int enDeclare = 0;
 
 extern int dist_n_llaves;
 extern string scheduleDist;
+extern string guardarLineasDist;
 
 void * (*exprParse)(const char*) = NULL;
 
@@ -103,11 +106,10 @@ corresponding C type is union name defaults to YYSTYPE.
         }
 
 
-%token  OMP PARALLEL FOR DO DECLARE DISTRIBUTE LOOP SCAN SECTIONS SECTION SINGLE CANCEL TASKGROUP CANCELLATION POINT THREAD VARIANT THREADPRIVATE METADIRECTIVE MAPPER
-        IF NUM_THREADS DEFAULT PRIVATE FIRSTPRIVATE SHARED COPYIN REDUCTION PROC_BIND ALLOCATE SIMD TASK LASTPRIVATE WHEN MATCH
-        LINEAR SCHEDULE COLLAPSE NOWAIT ORDER ORDERED MODIFIER_CONDITIONAL MODIFIER_MONOTONIC MODIFIER_NONMONOTONIC STATIC DYNAMIC GUIDED AUTO RUNTIME MODOFIER_VAL MODOFIER_REF MODOFIER_UVAL MODIFIER_SIMD
+%token  OMP FOR DO DECLARE DISTRIBUTE LOOP SCAN SECTIONS SECTION SINGLE CANCEL TASKGROUP CANCELLATION POINT THREAD VARIANT THREADPRIVATE METADIRECTIVE MAPPER
+        IF NUM_THREADS DEFAULT COPYIN REDUCTION PROC_BIND ALLOCATE SIMD TASK LASTPRIVATE WHEN MATCH
+        LINEAR SCHEDULE COLLAPSE NOWAIT ORDER ORDERED STATIC DYNAMIC GUIDED AUTO RUNTIME
         SAFELEN SIMDLEN ALIGNED ALIGN NONTEMPORAL UNIFORM INBRANCH NOTINBRANCH DIST_SCHEDULE BIND INCLUSIVE EXCLUSIVE COPYPRIVATE ALLOCATOR INITIALIZER OMP_PRIV IDENTIFIER_DEFAULT WORKSHARE/*YAYING*/
-        NONE MASTER CLOSE SPREAD MODIFIER_INSCAN MODIFIER_TASK MODIFIER_DEFAULT 
         PLUS MINUS STAR BITAND BITOR BITXOR LOGAND LOGOR EQV NEQV MAX MIN
         DEFAULT_MEM_ALLOC LARGE_CAP_MEM_ALLOC CONST_MEM_ALLOC HIGH_BW_MEM_ALLOC LOW_LAT_MEM_ALLOC CGROUP_MEM_ALLOC
         PTEAM_MEM_ALLOC THREAD_MEM_ALLOC
@@ -121,9 +123,11 @@ corresponding C type is union name defaults to YYSTYPE.
         USE_DEVICE_PTR USE_DEVICE_ADDR TARGET DATA ENTER EXIT ANCESTOR DEVICE_NUM IS_DEVICE_PTR HAS_DEVICE_ADDR
         DEFAULTMAP BEHAVIOR_ALLOC BEHAVIOR_TO BEHAVIOR_FROM BEHAVIOR_TOFROM BEHAVIOR_FIRSTPRIVATE BEHAVIOR_NONE BEHAVIOR_DEFAULT CATEGORY_SCALAR CATEGORY_AGGREGATE CATEGORY_POINTER CATEGORY_ALLOCATABLE UPDATE TO FROM TO_MAPPER FROM_MAPPER USES_ALLOCATORS
  LINK DEVICE_TYPE MAP MAP_MODIFIER_ALWAYS MAP_MODIFIER_CLOSE MAP_MODIFIER_MAPPER MAP_TYPE_TO MAP_TYPE_FROM MAP_TYPE_TOFROM MAP_TYPE_ALLOC MAP_TYPE_RELEASE MAP_TYPE_DELETE EXT_ BARRIER TASKWAIT FLUSH RELEASE ACQUIRE ATOMIC READ WRITE CAPTURE HINT CRITICAL SOURCE SINK DESTROY THREADS
-        CONCURRENT CLUSTER ALLOC BROAD SCATTER GATHER ALLGATHER ALLREDUCTION CHUNK HALO TASK_ASYNC 
+        CLUSTER ALLOC BROAD SCATTER GATHER ALLGATHER ALLREDUCTION CHUNK HALO TASK_ASYNC 
 %token <itype> ICONSTANT
-%token <stype> EXPRESSION ID_EXPRESSION EXPR_STRING VAR_STRING TASK_REDUCTION 
+%token <stype> EXPRESSION ID_EXPRESSION EXPR_STRING VAR_STRING TASK_REDUCTION MODIFIER_CONDITIONAL MODOFIER_VAL MODOFIER_REF MODOFIER_UVAL
+                MODIFIER_INSCAN MODIFIER_TASK MODIFIER_DEFAULT CONCURRENT PARALLEL SHARED NONE PRIVATE FIRSTPRIVATE MASTER CLOSE SPREAD
+                MODIFIER_MONOTONIC MODIFIER_NONMONOTONIC MODIFIER_SIMD
 /* associativity and precedence */
 %left '<' '>' '=' "!=" "<=" ">="
 %left '+' '-'
@@ -131,7 +135,7 @@ corresponding C type is union name defaults to YYSTYPE.
 
 %type <stype> expression
 %type <stype> variable
-%type <stype> reduction_enum_identifier
+%type <stype> reduction_enum_identifier lastprivate_modifier
 
 /* start point for the parsing */
 %start openmp_directive
@@ -147,8 +151,8 @@ variable :   EXPR_STRING {$$=$1; }
         ;
 */
 
-var_list : variable
-          | var_list ',' variable
+var_list : variable {if (meterEnClause) {guardarLineasDist += $1;}}
+          | var_list ',' variable {if (meterEnClause) {guardarLineasDist += ","; guardarLineasDist += $3;}}
           ;
 
 var_list_cluster : variable {
@@ -160,8 +164,8 @@ var_list_cluster : variable {
                     }
         ;
 
-var_list_reduction : variable { if(enReductionCluster || enReductionDistribute){addReduce(true, $1);}}
-        | var_list_reduction ',' variable { if(enReductionCluster || enReductionDistribute){addReduce(true, $3);}}
+var_list_reduction : variable {if (meterEnClause){guardarLineasDist += $1;} if(enReductionCluster || enReductionDistribute){addReduce(true, $1);}}
+        | var_list_reduction {if (meterEnClause){guardarLineasDist += ",";}} ',' variable {if (meterEnClause){guardarLineasDist += $4;} if(enReductionCluster || enReductionDistribute){addReduce(true, $4);}}
         ;
 
 var_list_allreduction : variable { if(enAllReductionCluster || enAllReductionDistribute){addAllReduce(true, $1);}}
@@ -217,16 +221,22 @@ var_chunk_list_cluster : variable
                           }
                         var_chunk_list_cluster_aux
 
-dist_schedule_clause_cluster : DIST_SCHEDULE '(' STATIC ',' variable ')'
-                            {
-                              if (scheduleDist.size() != 0) {
-                                fprintf(stderr, "Doble shcedule en cluster distribute\n");
-                                exit(245);
-                              }
-                              
-                              scheduleDist = $5;
-                            }
+dist_schedule_clause_cluster : DIST_SCHEDULE '(' dist_schedule_parameter_cluster ')'
                             ;
+
+dist_schedule_parameter_cluster : STATIC
+                                | STATIC ',' EXPR_STRING
+                                  {
+                                    if (enCluster) {
+                                      if (scheduleDist.size() != 0) {
+                                        fprintf(stderr, "Doble shcedule en cluster distribute\n");
+                                        exit(245);
+                                      }
+
+                                      scheduleDist = $3;
+                                    }
+                                  }
+                                ;
 
 openmp_directive : parallel_directive
                  | metadirective_directive
@@ -241,12 +251,12 @@ openmp_directive : parallel_directive
                  | parallel_do_simd_directive
                  | declare_simd_directive
                  | declare_simd_fortran_directive
-                 | distribute_directive
-                 | distribute_simd_directive
-                 | distribute_parallel_for_directive
-                 | distribute_parallel_do_directive
-                 | distribute_parallel_for_simd_directive
-                 | distribute_parallel_do_simd_directive
+                 | distribute_directive {dist_n_llaves = 0;}
+                 | distribute_simd_directive {dist_n_llaves = 0; guardarLineasDist += "\n";}
+                 | distribute_parallel_for_directive {dist_n_llaves = 0; guardarLineasDist += "\n";}
+                 | distribute_parallel_do_directive {dist_n_llaves = 0; guardarLineasDist += "\n";}
+                 | distribute_parallel_for_simd_directive {dist_n_llaves = 0; guardarLineasDist += "\n";}
+                 | distribute_parallel_do_simd_directive {dist_n_llaves = 0; guardarLineasDist += "\n";}
                  | parallel_for_directive
                  | parallel_do_directive
                  | parallel_loop_directive
@@ -293,10 +303,10 @@ openmp_directive : parallel_directive
                  | critical_directive
                  | depobj_directive
                  | ordered_directive
-                 | teams_distribute_directive
-                 | teams_distribute_simd_directive
-                 | teams_distribute_parallel_for_directive
-                 | teams_distribute_parallel_for_simd_directive
+                 | teams_distribute_directive {dist_n_llaves = 0;}
+                 | teams_distribute_simd_directive {dist_n_llaves = 0; guardarLineasDist += "\n";}
+                 | teams_distribute_parallel_for_directive {dist_n_llaves = 0; guardarLineasDist += "\n";}
+                 | teams_distribute_parallel_for_simd_directive {dist_n_llaves = 0; guardarLineasDist += "\n";}
                  | teams_loop_directive
                  | target_parallel_directive
                  | target_parallel_for_directive
@@ -1251,7 +1261,7 @@ threads_clause : THREADS { }
                ;
 simd_ordered_clause : SIMD { } 
                     ;
-teams_distribute_directive : TEAMS DISTRIBUTE { } teams_distribute_clause_optseq 
+teams_distribute_directive : TEAMS DISTRIBUTE {if (enCluster) {enDistribute = 1;}} teams_distribute_clause_optseq
                            ;
 teams_distribute_clause_optseq : /* empty */
                                | teams_distribute_clause_seq
@@ -1270,9 +1280,9 @@ teams_distribute_clause : num_teams_clause
                         | allocate_clause              
                         | lastprivate_distribute_clause
                         | collapse_clause
-                        | dist_schedule_clause
+                        | dist_schedule_clause_cluster
                         ;
-teams_distribute_simd_directive :  TEAMS DISTRIBUTE SIMD { } teams_distribute_simd_clause_optseq 
+teams_distribute_simd_directive :  TEAMS DISTRIBUTE SIMD {if (enCluster) {enDistribute = 1; enDistributeExtendido = 1; guardarLineasDist += "#pragma omp simd";}} teams_distribute_simd_clause_optseq {if (enCluster) {enDistributeExtendido = 0;}} 
                                 ;
 teams_distribute_simd_clause_optseq : /* empty */
                                     | teams_distribute_simd_clause_seq
@@ -1291,7 +1301,7 @@ teams_distribute_simd_clause : num_teams_clause
                              | allocate_clause
                              | lastprivate_clause
                              | collapse_clause
-                             | dist_schedule_clause
+                             | dist_schedule_clause_cluster
                              | if_simd_clause
                              | safelen_clause
                              | simdlen_clause
@@ -1300,7 +1310,7 @@ teams_distribute_simd_clause : num_teams_clause
                              | nontemporal_clause
                              | order_clause
                              ;
-teams_distribute_parallel_for_directive :  TEAMS DISTRIBUTE PARALLEL FOR { } teams_distribute_parallel_for_clause_optseq 
+teams_distribute_parallel_for_directive :  TEAMS DISTRIBUTE PARALLEL FOR {if (enCluster) {enDistribute = 1; enDistributeExtendido = 1; guardarLineasDist += "#pragma omp parallel for";}} teams_distribute_parallel_for_clause_optseq {if (enCluster) {enDistributeExtendido = 0;}}
                                         ;
 teams_distribute_parallel_for_clause_optseq : /* empty */
                                             | teams_distribute_parallel_for_clause_seq
@@ -1328,9 +1338,9 @@ teams_distribute_parallel_for_clause : num_teams_clause
                                      | ordered_clause
                                      | nowait_clause
                                      | order_clause 
-                                     | dist_schedule_clause                                   
+                                     | dist_schedule_clause_cluster                                   
                                      ;
-teams_distribute_parallel_do_directive :  TEAMS DISTRIBUTE PARALLEL DO { } teams_distribute_parallel_do_clause_optseq 
+teams_distribute_parallel_do_directive :  TEAMS DISTRIBUTE PARALLEL DO {if (enCluster) {enDistribute = 1; enDistributeExtendido = 1; guardarLineasDist += "#pragma omp parallel do";}} teams_distribute_parallel_do_clause_optseq {if (enCluster) {enDistributeExtendido = 0;}}
                                        ;
 teams_distribute_parallel_do_clause_optseq : /* empty */
                                            | teams_distribute_parallel_do_clause_seq
@@ -1358,9 +1368,9 @@ teams_distribute_parallel_do_clause : num_teams_clause
                                     | ordered_clause
                                     | nowait_clause
                                     | order_clause 
-                                    | dist_schedule_clause                                   
+                                    | dist_schedule_clause_cluster
                                      ;
-teams_distribute_parallel_for_simd_directive : TEAMS DISTRIBUTE PARALLEL FOR SIMD { } teams_distribute_parallel_for_simd_clause_optseq 
+teams_distribute_parallel_for_simd_directive : TEAMS DISTRIBUTE PARALLEL FOR SIMD {if (enCluster) {enDistribute = 1; enDistributeExtendido = 1; guardarLineasDist += "#pragma omp parallel for simd";}} teams_distribute_parallel_for_simd_clause_optseq {if (enCluster) {enDistributeExtendido = 0;}}
                                              ;
 teams_distribute_parallel_for_simd_clause_optseq : /* empty */
                                                  | teams_distribute_parallel_for_simd_clause_seq
@@ -1388,13 +1398,13 @@ teams_distribute_parallel_for_simd_clause : num_teams_clause
                                           | ordered_clause
                                           | nowait_clause
                                           | order_clause 
-                                          | dist_schedule_clause
+                                          | dist_schedule_clause_cluster
                                           | safelen_clause
                                           | simdlen_clause
                                           | aligned_clause
                                           | nontemporal_clause
                                           ;
-teams_distribute_parallel_do_simd_directive : TEAMS DISTRIBUTE PARALLEL DO SIMD { } teams_distribute_parallel_do_simd_clause_optseq 
+teams_distribute_parallel_do_simd_directive : TEAMS DISTRIBUTE PARALLEL DO SIMD {if (enCluster) {enDistribute = 1; enDistributeExtendido = 1; guardarLineasDist += "#pragma omp parallel do simd";}} teams_distribute_parallel_do_simd_clause_optseq {if (enCluster) {enDistributeExtendido = 0;}}
                                             ;
 teams_distribute_parallel_do_simd_clause_optseq : /* empty */
                                                 | teams_distribute_parallel_do_simd_clause_seq
@@ -1422,7 +1432,7 @@ teams_distribute_parallel_do_simd_clause : num_teams_clause
                                          | ordered_clause
                                          | nowait_clause
                                          | order_clause 
-                                         | dist_schedule_clause
+                                         | dist_schedule_clause_cluster
                                          | safelen_clause
                                          | simdlen_clause
                                          | aligned_clause
@@ -1995,17 +2005,17 @@ declare_simd_fortran_directive : DECLARE SIMD { } '(' proc_name ')' declare_simd
 proc_name : /* empty */
           | EXPR_STRING { }
           ;
-distribute_directive : DISTRIBUTE { } distribute_clause_optseq
+distribute_directive : DISTRIBUTE {if (enCluster) {enDistribute = 1;}} distribute_clause_optseq
                      ;
-distribute_simd_directive : DISTRIBUTE SIMD { } distribute_simd_clause_optseq
+distribute_simd_directive : DISTRIBUTE SIMD {if (enCluster) {enDistribute = 1; enDistributeExtendido = 1; guardarLineasDist += "#pragma omp simd";}} distribute_simd_clause_optseq {if (enCluster) {enDistributeExtendido = 0;}}
                           ;
-distribute_parallel_for_directive : DISTRIBUTE PARALLEL FOR { } distribute_parallel_for_clause_optseq
+distribute_parallel_for_directive : DISTRIBUTE PARALLEL FOR {if (enCluster) {enDistribute = 1; enDistributeExtendido = 2; guardarLineasDist += "#pragma omp parallel for";}} distribute_parallel_for_clause_optseq {if (enCluster) {enDistributeExtendido = 0;}}
                                   ;
-distribute_parallel_do_directive : DISTRIBUTE PARALLEL DO { } distribute_parallel_do_clause_optseq
+distribute_parallel_do_directive : DISTRIBUTE PARALLEL DO {if (enCluster) {enDistribute = 1; enDistributeExtendido = 3; guardarLineasDist += "#pragma omp parallel do";}} distribute_parallel_do_clause_optseq {if (enCluster) {enDistributeExtendido = 0;}}
                                  ;
-distribute_parallel_for_simd_directive : DISTRIBUTE PARALLEL FOR SIMD { } distribute_parallel_for_simd_clause_optseq
+distribute_parallel_for_simd_directive : DISTRIBUTE PARALLEL FOR SIMD {if (enCluster) {enDistribute = 1; enDistributeExtendido = 4; guardarLineasDist += "#pragma omp parallel for simd";}} distribute_parallel_for_simd_clause_optseq {if (enCluster) {enDistributeExtendido = 0;}}
                                        ;
-distribute_parallel_do_simd_directive : DISTRIBUTE PARALLEL DO SIMD { } distribute_parallel_do_simd_clause_optseq
+distribute_parallel_do_simd_directive : DISTRIBUTE PARALLEL DO SIMD {if (enCluster) {enDistribute = 1; enDistributeExtendido = 5; guardarLineasDist += "#pragma omp parallel do simd";}} distribute_parallel_do_simd_clause_optseq {if (enCluster) {enDistributeExtendido = 0;}}
                                       ;
 parallel_for_directive : PARALLEL FOR { } parallel_for_clause_optseq
                        ;
@@ -2691,24 +2701,26 @@ distribute_clause : private_clause
                   | firstprivate_clause 
                   | lastprivate_distribute_clause
                   | collapse_clause
-                  | dist_schedule_clause
+                  | dist_schedule_clause_cluster
                   | allocate_clause
                   ;
+
 distribute_simd_clause : private_clause
                        | firstprivate_clause 
                        | lastprivate_clause
                        | collapse_clause
-                       | dist_schedule_clause
+                       | dist_schedule_clause_cluster
                        | allocate_clause
                        | if_simd_clause
                        | safelen_clause
                        | simdlen_clause
-                       | linear_clause
-                       | aligned_clause
+                       | {if (enDistributeExtendido) {guardarLineasDist += " linear("; meterEnClause = 1;}} linear_clause
+                       | {if (enDistributeExtendido == 1 || enDistributeExtendido == 4 || enDistributeExtendido == 5) {guardarLineasDist += " aligned("; meterEnClause = 1;}} aligned_clause
                        | nontemporal_clause
-                       | reduction_clause
+                       | reduction_clause_cluster
                        | order_clause
                        ;
+                       
 distribute_parallel_for_clause : if_parallel_clause
                                | num_threads_clause
                                | default_clause
@@ -2716,17 +2728,17 @@ distribute_parallel_for_clause : if_parallel_clause
                                | firstprivate_clause
                                | shared_clause
                                | copyin_clause
-                               | reduction_clause
+                               | reduction_clause_cluster
                                | proc_bind_clause
                                | allocate_clause
                                | lastprivate_clause 
-                               | linear_clause
+                               | {if (enDistributeExtendido) {guardarLineasDist += " linear("; meterEnClause = 1;}} linear_clause
                                | schedule_clause
                                | collapse_clause
-                               | ordered_clause
+                               | {if (enDistributeExtendido > 1) {guardarLineasDist += " ordered"; meterEnClause = 1;}} ordered_clause
                                | nowait_clause
                                | order_clause 
-                               | dist_schedule_clause
+                               | dist_schedule_clause_cluster
                                ;
 distribute_parallel_do_clause : if_parallel_clause
                               | num_threads_clause
@@ -2735,16 +2747,16 @@ distribute_parallel_do_clause : if_parallel_clause
                               | firstprivate_clause
                               | shared_clause
                               | copyin_clause
-                              | reduction_clause
+                              | reduction_clause_cluster
                               | proc_bind_clause
                               | allocate_clause
                               | lastprivate_clause 
-                              | linear_clause
+                              | {if (enDistributeExtendido) {guardarLineasDist += " linear("; meterEnClause = 1;}} linear_clause
                               | schedule_clause
                               | collapse_clause
-                              | ordered_clause
+                              | {if (enDistributeExtendido > 1) {guardarLineasDist += " ordered"; meterEnClause = 1;}} ordered_clause
                               | order_clause 
-                              | dist_schedule_clause
+                              | dist_schedule_clause_cluster
                               ;
 distribute_parallel_for_simd_clause : if_parallel_simd_clause
                                     | num_threads_clause
@@ -2753,20 +2765,20 @@ distribute_parallel_for_simd_clause : if_parallel_simd_clause
                                     | firstprivate_clause
                                     | shared_clause
                                     | copyin_clause
-                                    | reduction_clause
+                                    | reduction_clause_cluster
                                     | proc_bind_clause
                                     | allocate_clause
                                     | lastprivate_clause 
-                                    | linear_clause
+                                    | {if (enDistributeExtendido) {guardarLineasDist += " linear("; meterEnClause = 1;}} linear_clause
                                     | schedule_clause
                                     | collapse_clause
-                                    | ordered_clause
+                                    | {if (enDistributeExtendido > 1) {guardarLineasDist += " ordered"; meterEnClause = 1;}} ordered_clause
                                     | nowait_clause
                                     | order_clause 
-                                    | dist_schedule_clause
+                                    | dist_schedule_clause_cluster
                                     | safelen_clause
                                     | simdlen_clause
-                                    | aligned_clause
+                                    | {if (enDistributeExtendido == 1 || enDistributeExtendido == 4 || enDistributeExtendido == 5) {guardarLineasDist += " aligned("; meterEnClause = 1;}} aligned_clause
                                     | nontemporal_clause
                                     ;
 distribute_parallel_do_simd_clause : if_parallel_simd_clause
@@ -2776,19 +2788,19 @@ distribute_parallel_do_simd_clause : if_parallel_simd_clause
                                    | firstprivate_clause
                                    | shared_clause
                                    | copyin_clause
-                                   | reduction_clause
+                                   | reduction_clause_cluster
                                    | proc_bind_clause
                                    | allocate_clause
                                    | lastprivate_clause 
-                                   | linear_clause
+                                   | {if (enDistributeExtendido) {guardarLineasDist += " linear("; meterEnClause = 1;}} linear_clause
                                    | schedule_clause
                                    | collapse_clause
-                                   | ordered_clause
+                                   | {if (enDistributeExtendido > 1) {guardarLineasDist += " ordered"; meterEnClause = 1;}} ordered_clause
                                    | order_clause 
-                                   | dist_schedule_clause
+                                   | dist_schedule_clause_cluster
                                    | safelen_clause
                                    | simdlen_clause
-                                   | aligned_clause
+                                   | {if (enDistributeExtendido == 1 || enDistributeExtendido == 4 || enDistributeExtendido == 5) {guardarLineasDist += " aligned("; meterEnClause = 1;}} aligned_clause
                                    | nontemporal_clause
                                    ;
 parallel_for_clause : if_parallel_clause
@@ -3002,12 +3014,12 @@ construct_type_clause : PARALLEL { }
 //                              | DO { current_clause = current_directive->addOpenMPClause(OMPC_do); }
 //                              | TASKGROUP { current_clause = current_directive->addOpenMPClause(OMPC_taskgroup); }
 //                              ;
-if_parallel_clause : IF '(' if_parallel_parameter ')' { ; }
+if_parallel_clause : IF {if (enDistributeExtendido == 2 || enDistributeExtendido == 3){guardarLineasDist += " if("; meterEnClause = 1;}} '(' if_parallel_parameter ')' {if (enDistributeExtendido == 2 || enDistributeExtendido == 3){guardarLineasDist += ")"; meterEnClause = 0;}}
                    ;
 
-if_parallel_parameter : PARALLEL ':' { }
-                        expression { ; }
-                      | EXPR_STRING { }
+if_parallel_parameter : PARALLEL ':' {if (meterEnClause){guardarLineasDist += $1;}}
+                        expression {if (meterEnClause){guardarLineasDist += $1;}}
+                      | EXPR_STRING {if (meterEnClause){guardarLineasDist += $1;}}
                       ;
 if_task_clause : IF '(' if_task_parameter ')' { ; }
                ;
@@ -3072,16 +3084,16 @@ if_taskloop_simd_parameter : TASKLOOP ':' { }  expression { ; }
                            | SIMD ':' { }  expression { ; }
                            | EXPR_STRING {
                              } ;
-if_simd_clause : IF '(' if_simd_parameter ')' { ; }
+if_simd_clause : IF {if (enDistributeExtendido == 1 || enDistributeExtendido == 4 || enDistributeExtendido == 5) {guardarLineasDist += " if("; meterEnClause = 1;}} '(' if_simd_parameter ')' {if (enDistributeExtendido == 1 || enDistributeExtendido == 4 || enDistributeExtendido == 5) {guardarLineasDist += ")"; meterEnClause = 0;}}
                ;
-if_simd_parameter : SIMD ':' { }  expression { ; }
-                  | EXPR_STRING { }
+if_simd_parameter : SIMD ':' {if (meterEnClause) {guardarLineasDist += "simd:";}}  expression {if (meterEnClause) {guardarLineasDist += $4;}}
+                  | EXPR_STRING {if (meterEnClause) {guardarLineasDist += $1;}}
                   ;
-if_parallel_simd_clause : IF '(' if_parallel_simd_parameter ')' { ; }
+if_parallel_simd_clause : IF '(' {if(enDistributeExtendido == 4 || enDistributeExtendido == 5){guardarLineasDist += "if("; meterEnClause = 1;}} if_parallel_simd_parameter ')' {if(enDistributeExtendido == 4 || enDistributeExtendido == 5){guardarLineasDist += ")"; meterEnClause = 0;}}
                         ;
-if_parallel_simd_parameter : SIMD ':' { }  expression { ; }
-                           | PARALLEL ':' { }  expression { ; }
-                           | EXPR_STRING { }
+if_parallel_simd_parameter : SIMD ':' expression {if(meterEnClause){guardarLineasDist += "simd:"; guardarLineasDist += $3;}}
+                           | PARALLEL ':' expression {if(meterEnClause){guardarLineasDist += "parallel:"; guardarLineasDist += $3;}}
+                           | EXPR_STRING {if(meterEnClause){guardarLineasDist += $1;}}
                            ;
 if_target_parallel_simd_clause : IF '(' if_target_parallel_simd_parameter ')' { ; }
                                ;
@@ -3117,8 +3129,7 @@ if_parameter : EXPR_STRING {
                 }
              ;
 */
-num_threads_clause: NUM_THREADS {
-                         } '(' expression ')'
+num_threads_clause: NUM_THREADS {if (enDistributeExtendido > 1){guardarLineasDist += " num_threads("; meterEnClause = 1;}} '(' expression ')' {if (enDistributeExtendido > 1){guardarLineasDist += $4; guardarLineasDist += ")"; meterEnClause = 0;}}
                   ;
 num_teams_clause: NUM_TEAMS {
                          } '(' expression ')'
@@ -3129,17 +3140,16 @@ align_clause: ALIGN {
                 
 thread_limit_clause: THREAD_LIMIT { } '(' expression ')'
                    ;
-copyin_clause: COPYIN {
-                } '(' var_list ')'
+copyin_clause: COPYIN {if (enDistributeExtendido > 1){guardarLineasDist += " copyin("; meterEnClause = 1;}} '(' var_list ')' {if (enDistributeExtendido > 1){guardarLineasDist += ")"; meterEnClause = 0;}}
              ;
 
-default_clause : DEFAULT '(' default_parameter ')' { } 
+default_clause : DEFAULT {if (enDistributeExtendido > 1){guardarLineasDist += " default("; meterEnClause = 1;}} '(' default_parameter ')' {if (enDistributeExtendido > 1){guardarLineasDist += ")"; meterEnClause = 0;}}
                ;
 
-default_parameter : SHARED { }
-                  | NONE { }
-                  | FIRSTPRIVATE { }
-                  | PRIVATE { }
+default_parameter : SHARED {if (meterEnClause){guardarLineasDist += $1;}}
+                  | NONE {if (meterEnClause){guardarLineasDist += $1;}}
+                  | FIRSTPRIVATE {if (meterEnClause){guardarLineasDist += $1;}}
+                  | PRIVATE {if (meterEnClause){guardarLineasDist += $1;}}
                   ;
 
 default_variant_clause : DEFAULT '(' default_variant_directive ')' { }
@@ -3148,11 +3158,12 @@ default_variant_clause : DEFAULT '(' default_variant_directive ')' { }
 default_variant_directive : { }
                           ;
 
-proc_bind_clause : PROC_BIND '(' proc_bind_parameter ')' { } ;
+proc_bind_clause : PROC_BIND {if(enDistributeExtendido > 1){guardarLineasDist += " proc_bind("; meterEnClause = 1;}} '(' proc_bind_parameter ')' {if(enDistributeExtendido > 1){guardarLineasDist += ")"; meterEnClause = 0;}}
+                  ;
 
-proc_bind_parameter : MASTER { }
-                    | CLOSE { }
-                    | SPREAD { }
+proc_bind_parameter : MASTER {if (meterEnClause){guardarLineasDist += $1;}}
+                    | CLOSE {if (meterEnClause){guardarLineasDist += $1;}}
+                    | SPREAD {if (meterEnClause){guardarLineasDist += $1;}}
                     ;
 bind_clause : BIND '(' bind_parameter ')' { } ;
 
@@ -3160,11 +3171,13 @@ bind_parameter : TEAMS { }
                | PARALLEL { }
                | THREAD { }
                ;
-allocate_clause : ALLOCATE '(' allocate_parameter ')' ;
 
-allocate_parameter : EXPR_STRING  { }
-                   | EXPR_STRING ',' { } var_list
-                   | allocator_parameter ':' { ; } var_list
+allocate_clause : ALLOCATE {if (enDistributeExtendido > 1) {guardarLineasDist += " allocate("; meterEnClause = 1;}} '(' allocate_parameter ')' {if (enDistributeExtendido > 1) {guardarLineasDist += ")"; meterEnClause = 0;}}
+                ;
+
+allocate_parameter : EXPR_STRING  {if (meterEnClause) {guardarLineasDist += $1;}}
+                   | EXPR_STRING ',' {if (meterEnClause) {guardarLineasDist += $1; guardarLineasDist += ",";}} var_list
+                   | allocator_parameter ':' {if (meterEnClause) {guardarLineasDist += ":";}} var_list
                    ;
 allocator_parameter : DEFAULT_MEM_ALLOC { }
                     | LARGE_CAP_MEM_ALLOC { }
@@ -3177,7 +3190,7 @@ allocator_parameter : DEFAULT_MEM_ALLOC { }
                     | EXPR_STRING { }
                     ;
 
-private_clause : PRIVATE { } '(' var_list ')' { }
+private_clause : PRIVATE {if (enDistributeExtendido) {guardarLineasDist += " private("; meterEnClause = 1;}} '(' var_list ')' {if (enDistributeExtendido) {guardarLineasDist += ")"; meterEnClause = 0;}}
                ;
 
 alloc_clause : ALLOC '(' var_list_cluster ')' { MPIAlloc(); };
@@ -3202,45 +3215,46 @@ allgather_clause : ALLGATHER { } '(' var_chunk_list_cluster ')' ;
 
 allreduction_clause : ALLREDUCTION { } '(' reduction_parameter ':' var_list ')' ;
 
-firstprivate_clause : FIRSTPRIVATE { } '(' var_list ')' { }
+firstprivate_clause : FIRSTPRIVATE {if (enDistributeExtendido > 1) {guardarLineasDist += " firstprivate("; meterEnClause = 1;}} '(' var_list ')' {if (enDistributeExtendido > 1) {guardarLineasDist += ")"; meterEnClause = 0;}}
                     ;
 
 copyprivate_clause : COPYPRIVATE { } '(' var_list ')' { }
                    ;
 fortran_copyprivate_clause : COPYPRIVATE { } '(' var_list ')' { }
                            ;
-lastprivate_clause : LASTPRIVATE '(' lastprivate_parameter ')' ;
+lastprivate_clause : LASTPRIVATE {if (enDistributeExtendido) {guardarLineasDist += " lastprivate("; meterEnClause = 1;}} '(' lastprivate_parameter ')' {if (enDistributeExtendido) {guardarLineasDist += ")"; meterEnClause = 0;}}
+                    ;
 
-lastprivate_parameter : EXPR_STRING { }
-                      | EXPR_STRING ',' { } var_list
-                      | lastprivate_modifier ':'{;} var_list
+lastprivate_parameter : EXPR_STRING {if (meterEnClause) {guardarLineasDist += $1;}}
+                      | EXPR_STRING {if (meterEnClause) {guardarLineasDist += $1; guardarLineasDist += ",";}} ',' var_list
+                      | lastprivate_modifier ':' {if (meterEnClause) {guardarLineasDist += $1;guardarLineasDist += ":";}} var_list
                       ;
 
 lastprivate_distribute_clause : LASTPRIVATE { } '(' var_list ')' { }
 
-lastprivate_modifier : MODIFIER_CONDITIONAL { }
+lastprivate_modifier : MODIFIER_CONDITIONAL {$$ = $1;}
                      ;
 
-linear_clause : LINEAR '(' linear_parameter ')'
-              | LINEAR '(' linear_parameter ':' EXPR_STRING { } ')' 
+linear_clause : LINEAR '(' linear_parameter ')' {if (enDistributeExtendido) {guardarLineasDist += ")"; meterEnClause = 0;}}
+              | LINEAR '(' linear_parameter ':' EXPR_STRING {} ')' {if (enDistributeExtendido == 1 || enDistributeExtendido == 4 || enDistributeExtendido == 5) {guardarLineasDist += ":"; guardarLineasDist += $5; guardarLineasDist += ")"; meterEnClause = 0;}}
               ;
 
-linear_parameter : EXPR_STRING  { }
-                 | EXPR_STRING ',' {  } var_list
-                 | linear_modifier '(' var_list ')'
+linear_parameter : EXPR_STRING {if (meterEnClause) {guardarLineasDist += $1;}}
+                 | EXPR_STRING ',' {if (meterEnClause) {guardarLineasDist += $1; guardarLineasDist += ",";}} var_list
+                 | linear_modifier {if (meterEnClause) {guardarLineasDist += "(";}} '(' var_list ')' {if (meterEnClause) {guardarLineasDist += ")";}}
                  ;
-linear_modifier : MODOFIER_VAL { }
-                | MODOFIER_REF { }
-                | MODOFIER_UVAL { }
+linear_modifier : MODOFIER_VAL {if (meterEnClause) {guardarLineasDist += $1;}}
+                | MODOFIER_REF {if (meterEnClause) {guardarLineasDist += $1;}}
+                | MODOFIER_UVAL {if (meterEnClause) {guardarLineasDist += $1;}}
                 ;
 
-aligned_clause : ALIGNED '(' aligned_parameter ')'
-               | ALIGNED '(' aligned_parameter ':' EXPR_STRING { } ')'
+aligned_clause : ALIGNED '(' aligned_parameter ')' {if (enDistributeExtendido == 1 || enDistributeExtendido == 4 || enDistributeExtendido == 5) {guardarLineasDist += ")"; meterEnClause = 0;}}
+               | ALIGNED '(' aligned_parameter ':' EXPR_STRING ')' {if (enDistributeExtendido == 1 || enDistributeExtendido == 4 || enDistributeExtendido == 5) {guardarLineasDist += ":"; guardarLineasDist += $5; guardarLineasDist += ")"; meterEnClause = 0;}}
                ;
 
 
-aligned_parameter : EXPR_STRING { }
-                  | EXPR_STRING ',' { } var_list
+aligned_parameter : EXPR_STRING {if(meterEnClause){guardarLineasDist += $1;}}
+                  | EXPR_STRING ',' {if(meterEnClause){guardarLineasDist += $1; guardarLineasDist += ",";}} var_list
                   ;
 
 initializer_clause : INITIALIZER '('initializer_expr')';
@@ -3249,29 +3263,29 @@ initializer_expr : OMP_PRIV '=' expr;
 
 expr: EXPR_STRING { };
 
-safelen_clause: SAFELEN { } '(' var_list ')' { }
+safelen_clause: SAFELEN {if (enDistributeExtendido == 1 || enDistributeExtendido == 4 || enDistributeExtendido == 5) {guardarLineasDist += " safelen("; meterEnClause = 1;}} '(' var_list ')' {if (enDistributeExtendido == 1 || enDistributeExtendido == 4 || enDistributeExtendido == 5) {guardarLineasDist += ")"; meterEnClause = 0;}}
               ;
 
-simdlen_clause: SIMDLEN { } '(' var_list ')' { }
+simdlen_clause: SIMDLEN {if (enDistributeExtendido == 1 || enDistributeExtendido == 4 || enDistributeExtendido == 5) {guardarLineasDist += " simdlen("; meterEnClause = 1;}} '(' var_list ')' {if (enDistributeExtendido == 1 || enDistributeExtendido == 4 || enDistributeExtendido == 5) {guardarLineasDist += ")"; meterEnClause = 0;}}
               ;
 
-nontemporal_clause: NONTEMPORAL { } '(' var_list ')' { }
+nontemporal_clause: NONTEMPORAL {if (enDistributeExtendido == 1 || enDistributeExtendido == 4 || enDistributeExtendido == 5){guardarLineasDist += " nontemporal("; meterEnClause = 1;}} '(' var_list ')' {if (enDistributeExtendido == 1 || enDistributeExtendido == 4 || enDistributeExtendido == 5){guardarLineasDist += ")"; meterEnClause = 0;}}
                       ;
 
-collapse_clause: COLLAPSE { } '(' expression ')' { }
+collapse_clause: COLLAPSE {if (enDistributeExtendido) {guardarLineasDist += " collapse("; meterEnClause = 1;}} '(' expression ')' {if (enDistributeExtendido) {guardarLineasDist += $4; guardarLineasDist += ")"; meterEnClause = 0;}}
                ;
 
-ordered_clause: ORDERED { } '(' expression ')'
-              | ORDERED { }
+ordered_clause: ORDERED '(' {if (enDistributeExtendido > 1) {guardarLineasDist += "(";}} expression ')' {if (enDistributeExtendido > 1) {guardarLineasDist += ")"; guardarLineasDist += $4; meterEnClause = 0;}}
+              | ORDERED {if (enDistributeExtendido > 1) {meterEnClause = 0;}}
               ;
 fortran_nowait_clause: NOWAIT { }
                      ;
-nowait_clause: NOWAIT { }
+nowait_clause: NOWAIT {if (enDistributeExtendido == 2 || enDistributeExtendido == 4){guardarLineasDist += " nowait";}}
              ;
-order_clause: ORDER '(' order_parameter ')' { }
+order_clause: ORDER {if(enDistributeExtendido){guardarLineasDist += " order("; meterEnClause = 1;}} '(' order_parameter ')' {if(enDistributeExtendido){guardarLineasDist += ")"; meterEnClause = 0;}}
             ;
 
-order_parameter : CONCURRENT { }
+order_parameter : CONCURRENT {if(meterEnClause){guardarLineasDist += $1;}}
                 ;
 
 uniform_clause: UNIFORM { } '(' var_list ')'
@@ -3303,46 +3317,44 @@ dist_schedule_clause : DIST_SCHEDULE '(' dist_schedule_parameter ')' {}
 dist_schedule_parameter : STATIC { }
                         | STATIC { } ',' EXPR_STRING { }
                         ;
-schedule_clause : SCHEDULE { }'(' schedule_parameter ')' {
-                }
+schedule_clause : SCHEDULE {if(enDistributeExtendido > 1){guardarLineasDist += " schedule("; meterEnClause = 1;}} '(' schedule_parameter ')' {if(enDistributeExtendido > 1){guardarLineasDist += ")"; meterEnClause = 0;}}
                 ;
 
-schedule_parameter : schedule_kind {}
-                   | schedule_modifier ':' schedule_kind
+schedule_parameter : schedule_kind
+                   | schedule_modifier {if (meterEnClause){guardarLineasDist += ":";}} ':' schedule_kind
                    ;
 
 
-schedule_kind : schedule_enum_kind { }
-              | schedule_enum_kind ','  EXPR_STRING { }
+schedule_kind : schedule_enum_kind
+              | schedule_enum_kind ','  EXPR_STRING {if (meterEnClause){guardarLineasDist += ","; guardarLineasDist += $3;}}
               ;
 
-schedule_modifier : schedule_enum_modifier ',' schedule_modifier2
+schedule_modifier : schedule_enum_modifier {if (meterEnClause){guardarLineasDist += ",";}} ',' schedule_modifier2
                   | schedule_enum_modifier
                   ;
 
-schedule_modifier2 : MODIFIER_MONOTONIC { }
-                   | MODIFIER_NONMONOTONIC { }
-                   | MODIFIER_SIMD { }
+schedule_modifier2 : MODIFIER_MONOTONIC {if (meterEnClause){guardarLineasDist += $1;}}
+                   | MODIFIER_NONMONOTONIC {if (meterEnClause){guardarLineasDist += $1;}}
+                   | MODIFIER_SIMD {if (meterEnClause){guardarLineasDist += $1;}}
                    ;
-schedule_enum_modifier : MODIFIER_MONOTONIC { }
-                       | MODIFIER_NONMONOTONIC { }
-                       | MODIFIER_SIMD { }
+schedule_enum_modifier : MODIFIER_MONOTONIC {if (meterEnClause){guardarLineasDist += $1;}}
+                       | MODIFIER_NONMONOTONIC {if (meterEnClause){guardarLineasDist += $1;}}
+                       | MODIFIER_SIMD {if (meterEnClause){guardarLineasDist += $1;}}
                        ;
 
-schedule_enum_kind : STATIC { }
-                   | DYNAMIC { }
-                   | GUIDED { }
-                   | AUTO { }
-                   | RUNTIME { }
+schedule_enum_kind : STATIC {if (meterEnClause){guardarLineasDist += "static";}}
+                   | DYNAMIC {if (meterEnClause){guardarLineasDist += "dynamic";}}
+                   | GUIDED {if (meterEnClause){guardarLineasDist += "guided";}}
+                   | AUTO {if (meterEnClause){guardarLineasDist += "auto";}}
+                   | RUNTIME {if (meterEnClause){guardarLineasDist += "runtime";}}
                    ;  
-shared_clause : SHARED { } '(' var_list ')'
+shared_clause : SHARED {if (enDistributeExtendido > 1){guardarLineasDist += " shared("; meterEnClause = 1;}} '(' var_list ')' {if (enDistributeExtendido > 1){guardarLineasDist += ")"; meterEnClause = 0;}}
               ;
 
-reduction_clause : REDUCTION { } '(' reduction_parameter ':' var_list ')' {
-                 }
+reduction_clause : REDUCTION '(' reduction_parameter ':' var_list ')'
                  ;
 
-reduction_clause_cluster : REDUCTION { aumentarReduction(); } '(' reduction_parameter_cluster ':' var_list_reduction ')'
+reduction_clause_cluster : REDUCTION { aumentarReduction(); if(enDistributeExtendido){guardarLineasDist += " reduction("; meterEnClause = 1;} } '(' reduction_parameter_cluster {if(enDistributeExtendido){guardarLineasDist += ":";}} ':' var_list_reduction ')' {if(enDistributeExtendido){guardarLineasDist += ")"; meterEnClause = 0;}}
                          ;
 
 allreduction_clause_cluster : ALLREDUCTION { aumentarAllReduction(); } '(' allreduction_parameter_cluster ':' var_list_allreduction ')'
@@ -3352,15 +3364,15 @@ allreduction_parameter_cluster : allreduction_identifier_cluster
                                | reduction_modifier ',' reduction_identifier_cluster
 
 reduction_parameter_cluster : reduction_identifier_cluster
-                            | reduction_modifier ',' reduction_identifier_cluster
+                            | reduction_modifier {if (meterEnClause){guardarLineasDist += ",";}} ',' reduction_identifier_cluster
                             ;
 
 allreduction_identifier_cluster : reduction_enum_identifier { if(enAllReductionCluster || enAllReductionDistribute){addAllReduce(false, $1);}}
                                 | EXPR_STRING { }
                                 ;
                     
-reduction_identifier_cluster : reduction_enum_identifier { if(enReductionCluster || enReductionDistribute){addReduce(false, $1);}}
-                              | EXPR_STRING { }
+reduction_identifier_cluster : reduction_enum_identifier {if (meterEnClause){guardarLineasDist += $1;} if(enReductionCluster || enReductionDistribute){addReduce(false, $1);}}
+                              | EXPR_STRING {if (meterEnClause) {guardarLineasDist += $1;}}
                               ;
 
 reduction_parameter : reduction_identifier {}
@@ -3371,19 +3383,19 @@ reduction_identifier : reduction_enum_identifier {}
                      | EXPR_STRING { }
                      ;
 
-reduction_modifier : MODIFIER_INSCAN { }
-                   | MODIFIER_TASK { }
-                   | MODIFIER_DEFAULT { }
+reduction_modifier : MODIFIER_INSCAN {if (meterEnClause){guardarLineasDist += $1;}}
+                   | MODIFIER_TASK {if (meterEnClause){guardarLineasDist += $1;}}
+                   | MODIFIER_DEFAULT {if (meterEnClause){guardarLineasDist += $1;}}
                    ;
 
 reduction_enum_identifier : '+'{ $$ = "+"; }
-                          | '-'{ }
+                          | '-'{ $$ = "-"; }
                           | '*'{ $$ = "*"; }
                           | '&'{ $$ = "&"; }
                           | '|'{ $$ = "|"; }
                           | '^'{ $$ = "^"; }
-                          | LOGAND{ }
-                          | LOGOR{ }
+                          | LOGAND{ $$ = "LOGAND"; }
+                          | LOGOR{ $$ = "LOGOR"; }
                           | MAX{ $$ = "MAX"; }
                           | MIN{ $$ = "MIN"; }
                           ;

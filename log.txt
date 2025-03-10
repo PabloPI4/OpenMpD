@@ -1,15 +1,32 @@
+LEYENDO: main
+SE METE EN IDENTIFIER
 Inserted Function: main in scope 1
 New ScopeTable with id 1.1 created
-Debug: INT Debug: x Debug: 
+LEYENDO: valores
+SE METE EN IDENTIFIER
+Debug: INT Debug: valores Debug: 
+LEYENDO: valores
+SE METE EN IDENTIFIER
+LEYENDO: malloc
+SE METE EN IDENTIFIER
 New ScopeTable with id 1.1.1 created
+LEYENDO: i
+SE METE EN IDENTIFIER
 Debug: INT Debug: i Debug: 
+LEYENDO: i
+SE METE EN IDENTIFIER
+LEYENDO: i
+SE METE EN IDENTIFIER
+LEYENDO: valores
+SE METE EN IDENTIFIER
+LEYENDO: i
+SE METE EN IDENTIFIER
+LEYENDO: i
+SE METE EN IDENTIFIER
 ScopeTable 1.1.1 fully destructed.
-New ScopeTable with id 1.1.2 created
-Debug: INT Debug: i Debug: 
-ScopeTable 1.1.2 fully destructed.
 ScopeTable 1.1 fully destructed.
 ScopeTable 1 fully destructed.
 
-Total lines: 16
+Total lines: 11
 Total errors: 0
 
