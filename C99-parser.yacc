@@ -10,6 +10,7 @@ int error_count = 0;
 int main_init = 0;
 int main_end = 0;
 int MPIInitDone = 0;
+int MPIInitMainDone = 0;
 long posInit = -100;
 long posVarsInit = -100;
 int enMain = 0;
@@ -675,9 +676,13 @@ block_item
 	: declaration
 	| 
 	{
-		if(main_init == 1 && MPIInitDone == 0 && posInit == -100){
+		if(enMain && MPIInitMainDone == 0 && posInit == -100){
 			posInit = output.tellp();
 			output.write("                                                                                                                                                      \n", 151);
+		}
+		else if (enMain && MPIInitMainDone == 1 && posInit == -100) {
+			posInit = output.tellp();
+			MPIInitParte2();
 		}
 	}
 	statement

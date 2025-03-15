@@ -42,7 +42,10 @@ int update = 0;
 extern int MPIInitDone;
 extern int main_end;
 extern int main_init;
+extern int enMain;
+extern int MPIInitMainDone;
 extern void MPIInit();
+void MPIInitParte2();
 
 int includeStringDone = 0;
 int enCluster = 0;
@@ -328,8 +331,14 @@ openmp_directive : parallel_directive
                  | declare_cluster_directive
                  | end_declare_cluster_directive
                  | {
-                      if(main_init == 1 && MPIInitDone == 0){
+                      if(MPIInitDone == 0){
                       	MPIInit();
+                        if (!enMain) {
+                          MPIInitMainDone = 1;
+                        }
+                        else {
+                          MPIInitParte2();
+                        }
                       	main_init = 0;
                       	MPIInitDone = 1;
                       	main_end = 1;

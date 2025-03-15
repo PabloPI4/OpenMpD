@@ -476,6 +476,13 @@ void MPIInit(){
     output.seekp(posVarsInit);
 
     output.write("void DeclareTypesMPI();\n\nint __taskid = -1, __numprocs = -1;\n", 61);
+    
+    output.seekp(posActual);
+    statementZone = 1;
+}
+
+void MPIInitParte2(){
+    long posActual = output.tellp();
 
     output.seekp(posInit);
 
@@ -492,7 +499,7 @@ void MPIInit(){
         output.write("\tMPI_Init(NULL , NULL);\n\tMPI_Comm_size(MPI_COMM_WORLD,&__numprocs);\n\tMPI_Comm_rank(MPI_COMM_WORLD,&__taskid);\n\tDeclareTypesMPI();\nif (__taskid == 0) {\n", 151);
     }
     
-    output.seekp(posActual);
+    output.seekp(posActual + 151);
     statementZone = 1;
 }
 
@@ -590,13 +597,31 @@ void MPIFinalize(){
     void MPIBroad(){
     	string broad = "";
         for(const auto& arg : args){
-    		SymbolInfo *sim = table.getSymbolInfo(arg);
-    		if(sim->isArray()){
-    			broad += "MPI_Bcast(" + string(arg) + ", " + sim->getSizeList() + ", " + translateTypes(sim->getVariableType())  + ", 0, MPI_COMM_WORLD);\n";
-    		}
-    		else{
-    			broad += "MPI_Bcast(&" + string(arg) + ", 1, " + translateTypes(sim->getVariableType()) + ", 0, MPI_COMM_WORLD);\n";
-    		}
+            std::vector<std::string> values = extractValues(arg);
+
+            if (values.size() == 0) {
+                fprintf(stderr, "Sin variable en broad\n");
+                exit(126);
+            }
+            else if (values.size() == 1) {
+                SymbolInfo *sim = table.getSymbolInfo(values.at(0));
+    		    if(sim->isArray()){
+    		    	broad += "MPI_Bcast(" + string(values.at(0)) + ", " + sim->getSizeList() + ", " + translateTypes(sim->getVariableType())  + ", 0, MPI_COMM_WORLD);\n";
+    		    }
+    		    else{
+    		    	broad += "MPI_Bcast(&" + string(values.at(0)) + ", 1, " + translateTypes(sim->getVariableType()) + ", 0, MPI_COMM_WORLD);\n";
+    		    }
+            }
+            else {
+                SymbolInfo *sim = table.getSymbolInfo(values.at(0));
+                string mult = "";
+                for (unsigned long int i = 2; i < values.size(); i++) {
+                    mult += "*";
+                    mult += values.at(i);
+                }
+
+    		    broad += "MPI_Bcast(" + string(values.at(0)) + ", " + values.at(1) + mult + ", " + translateTypes(sim->getVariableType())  + ", 0, MPI_COMM_WORLD);\n";
+            }
     	}
     	output << broad << endl;
         args.clear();
