@@ -39,6 +39,8 @@ extern int enDeclare;
 extern int tamDeclare;
 extern char *declare;
 extern string scheduleDist;
+extern int llamadaFuncion;
+extern int escribirSeq;
 
 extern void MPIEmpezarSecuencial();
 extern void finSecuencial();
@@ -98,6 +100,8 @@ void updateText() {
             MPIDistribute(ini, fin);
 
             output << guardarLineasDist;
+
+            guardarLineasDist = "";
 
             enFor = -1;
         }
@@ -205,6 +209,15 @@ void updateText() {
             }
             enDistribute = 0;
             enFor = 0;
+        }
+        
+        if (llamadaFuncion) {
+            output << "if(__taskid == 0) {" << endl; llamadaFuncion = 0;
+        }
+
+        if (escribirSeq) {
+            output << "if(__taskid == 0){" << endl;
+            escribirSeq = 0;
         }
     }
     

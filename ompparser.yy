@@ -44,6 +44,7 @@ extern int main_end;
 extern int main_init;
 extern int enMain;
 extern int MPIInitMainDone;
+extern int enFuncion;
 extern void MPIInit();
 void MPIInitParte2();
 
@@ -344,8 +345,9 @@ openmp_directive : parallel_directive
                       	main_end = 1;
                       }
 
-                      if (!enCluster) {
-                        enCluster = 1;
+                      enCluster = 1;
+
+                      if (!enCluster && !enFuncion) {
                         MPIWriteCluster();
                       }
                     }

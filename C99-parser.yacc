@@ -14,6 +14,11 @@ int MPIInitMainDone = 0;
 long posInit = -100;
 long posVarsInit = -100;
 int enMain = 0;
+int enFuncion = 0;
+int llamadaFuncion = 0;
+int activarDeclaracion = 0;
+int escribirSeq = 0;
+extern int enCluster;
 
 extern ofstream logFile;
 extern ofstream errFile;
@@ -67,7 +72,7 @@ postfix_expression
 	: primary_expression {$$ = $1;}
 	| postfix_expression '[' expression ']'
 	| postfix_expression '(' ')'
-	| postfix_expression '(' argument_expression_list ')'
+	| postfix_expression '(' {if($1->isFunction() && !enCluster){output << "}" << endl; llamadaFuncion = 1;}} argument_expression_list ')'
 	| postfix_expression '.' IDENTIFIER
 	| postfix_expression PTR_OP IDENTIFIER
 	| postfix_expression INC_OP
@@ -490,7 +495,7 @@ declarator
 
 
 direct_declarator
-	: IDENTIFIER		{ $$ = $1; }
+	: IDENTIFIER		{ $$ = $1; fprintf(stderr, "AAAA: %s, %d\n", $1->getSymbolName().data(), enFuncion);}
 	| '(' declarator ')' { $$ = $2; }
 	| direct_declarator '[' type_qualifier_list assignment_expression ']'{
 		if(!$1->isArray()){
@@ -540,7 +545,7 @@ direct_declarator
 		$1->setParamList($3);
 		$$ = $1;
 	}
-	| direct_declarator '(' identifier_list ')' { $$ = $1; }
+	| direct_declarator '(' identifier_list ')' { $$ = $1;}
 	| direct_declarator '(' ')' { $$ = $1; }
 	;
 
@@ -654,6 +659,9 @@ compound_statement
 			if (enMain > 0) {
 				enMain++;
 			}
+			else {
+				enFuncion++;
+			}
 		}
 	block_item_list  
 	'}' {
@@ -664,6 +672,16 @@ compound_statement
 			else if (enMain > 0) {
 				enMain--;
 			}
+
+			if (!enMain){
+				if (enFuncion == 2) {
+					output << "}" << endl;
+					enFuncion = 0;
+				}
+				else if (enFuncion > 0) {
+					enFuncion--;
+				}
+			}
 		}
 	;
 
@@ -673,7 +691,7 @@ block_item_list
 	;
 
 block_item
-	: declaration
+	: {if((enFuncion == 2 || enMain == 2) && activarDeclaracion){output << "}" << endl;}} declaration {if ((enFuncion == 2 || enMain == 2) && activarDeclaracion) {escribirSeq = 1;}}
 	| 
 	{
 		if(enMain && MPIInitMainDone == 0 && posInit == -100){
@@ -684,6 +702,12 @@ block_item
 			posInit = output.tellp();
 			MPIInitParte2();
 		}
+
+		if (!enMain && enFuncion == 2 && !enCluster) {
+			output << "if (__taskid == 0) {" << endl;
+		}
+
+		activarDeclaracion = 1;
 	}
 	statement
 	;
@@ -719,6 +743,9 @@ jump_statement
 			MPIFinalize();
 			main_end = 0;
 		}
+		if (enFuncion == 2) {
+			output << "}" << endl;
+		}
 	}  ';'
 	|
 	RETURN
@@ -726,6 +753,9 @@ jump_statement
 		if(main_end == 1 && MPIInitDone == 1){
 			MPIFinalize();
 			main_end = 0;
+		}
+		if (enFuncion == 2) {
+			output << "}" << endl;
 		}
 	}
 	expression ';'
@@ -765,12 +795,18 @@ function_definition
 		if($2->getSymbolName() == "main"){
 			enMain = 1;
 		}
+
+		enFuncion = 1;
+		activarDeclaracion = 0;
 	} compound_statement {
 		$2->setIsDefined(true);
 		table.exitScope();
 		if($2->getSymbolName() == "main"){
 			enMain = 0;
 		}
+
+		enFuncion = 0;
+		activarDeclaracion = 0;
 	}
 	| declaration_specifiers declarator {
 		$2->setIsFunction(true);
@@ -803,12 +839,18 @@ function_definition
 		if($2->getSymbolName() == "main"){
 			enMain = 1;
 		}
+
+		enFuncion = 1;
+		activarDeclaracion = 0;
 	} compound_statement {
 		$2->setIsDefined(true);
 		table.exitScope();
 		if($2->getSymbolName() == "main"){
 			enMain = 0;
 		}
+
+		enFuncion = 0;
+		activarDeclaracion = 0;
 	}
 	;
 

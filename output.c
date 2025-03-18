@@ -21,6 +21,7 @@ void DeclareTypesMPI();
 int __taskid = -1, __numprocs = -1;
 void imprimeMat (int cM, float mat[][cM], int F, int C){
     int i, j;
+if (__taskid == 0) {
     for (i=0; i<F; i++) {
         for (j=0; j<C; j++) {
 	    printf(" %4f ", mat[i][j]);
@@ -28,12 +29,15 @@ void imprimeMat (int cM, float mat[][cM], int F, int C){
 	printf("\n");
     }
 }
+}
 
 void inicializarMatriz (int F, int C, float mat[F][C]){
     int i, j;
+if (__taskid == 0) {
     for (i=0; i<F; i++) 
         for (j=0; j<C; j++) 
   	    mat[i][j] = (i*F+j) % MAGIC;
+}
 }
 
 void Mult_ikj(int fA, int cA, int cB, float matA[fA][cA], float matB[cA][cB], float matC[fA][cB]) {
@@ -56,7 +60,6 @@ void Mult_ikj(int fA, int cA, int cB, float matA[fA][cA], float matB[cA][cB], fl
 
 
 
-}
 MPI_Bcast(&fA, 1, MPI_INT, 0, MPI_COMM_WORLD);
 MPI_Bcast(&cA, 1, MPI_INT, 0, MPI_COMM_WORLD);
 MPI_Bcast(&fB, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -115,7 +118,14 @@ __end = fC;
 
 #pragma omp parallel for private(r)
 	for (int __distribSched = __start; __distribSched < __end; __distribSched += __iter) {
-	for (int __distrib = __distribSched; __distrib < __distribSched + 1; __distrib++)if(__distrib >= __end) {continue;}
+	for (int __distrib = __distribSched; __distrib < __distribSched + 1; __distrib++){if(__distrib >= __end) {continue;}
+	        for (k=0; k<cC; k++) {
+	          r = matA[__distrib][k];
+	          for (j=0; j<cB; j++)
+	               matC[__distrib][j] += r * matB[k][j];
+
+	        }
+	    }
 {
 	int __offset = 0;
 	int *__displs = (int *) malloc(sizeof(int) * __numprocs);
@@ -160,13 +170,8 @@ __end = fC;
 }
 
 if (__taskid == 0) {
-	        for (k=0; k<cC; k++) {
-	          r = matA[__distrib][k];
-	          for (j=0; j<cB; j++)
-	               matC[__distrib][j] += r * matB[k][j];
-
-	        }
 	}
+}
 }
 	}
 
@@ -181,7 +186,6 @@ if (__taskid == 0) {
 
 
 
-}
 MPI_Bcast(&fA, 1, MPI_INT, 0, MPI_COMM_WORLD);
 MPI_Bcast(&cA, 1, MPI_INT, 0, MPI_COMM_WORLD);
 MPI_Bcast(&fB, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -238,8 +242,6 @@ __iter = __numprocs * 1;
 __start = 0 + __taskid * 1;
 __end = fC;
 
-#pragma omp parallel for private(r)
-	for (int __distribSched = __start; __distribSched < __end; __distribSched += __iter) {
 #pragma omp parallel for private(result)
 	for (int __distribSched = __start; __distribSched < __end; __distribSched += __iter) {
 	for (int __distrib = __distribSched; __distrib < __distribSched + 1; __distrib++){if(__distrib >= __end) {continue;}
@@ -297,6 +299,7 @@ __end = fC;
 if (__taskid == 0) {
 	}
 }
+}
 	}
 
 
@@ -337,29 +340,48 @@ if (__taskid == 0) {
 		       printf("Las dimensiones están mal, N1 debe ser igual a M2\n");
 
 		}
+
 		printf("Producto A(%d, %d) x B(%d, %d)\n", F1, C1, F2, C2);
 
+}
 	    float (*matA)[C1] =     calloc(F1,C1*sizeof(float)); 
+if(__taskid == 0){
+}
 	    float (*matB)[C2] =     calloc(F2,C2*sizeof(float)); 
+if(__taskid == 0){
+}
 	    float (*matC)[C2] =     calloc(F1,C2*sizeof(float)); 
+if(__taskid == 0){
+}
 	    float (*matC_ikj)[C2] = calloc(F1,C2*sizeof(float)); 
+if(__taskid == 0){
+}
 	    inicializarMatriz (F1, C1, matA);
+if(__taskid == 0) {
+}
 	    inicializarMatriz (F2, C2, matB);
+if(__taskid == 0) {
 
 	    gettimeofday(&t, NULL);
+}
 	    Mult_ijk(F1, C1, C2, matA, matB, matC);
+if(__taskid == 0) {
 	    gettimeofday(&t2, NULL);
 	    segundos = (((t2.tv_usec - t.tv_usec)/1000000.0f)  + (t2.tv_sec - t.tv_sec));
 	    printf("Total time using ijk was %f seconds\n", segundos);
 	    
 	    gettimeofday(&t, NULL);
+}
 	    Mult_ikj(F1, C1, C2, matA, matB, matC_ikj);
+if(__taskid == 0) {
 	    gettimeofday(&t2, NULL);
 	    segundos = (((t2.tv_usec - t.tv_usec)/1000000.0f)  + (t2.tv_sec - t.tv_sec));
 	    printf("Total time using ikj was %f seconds\n", segundos);
 	    
 
+}
 		int wrong = 0;
+if(__taskid == 0){
 	        for (i=0; i<F1; i++) {
 	            for (j=0; j<C2; j++) {
 	                result = 0;
@@ -380,11 +402,17 @@ if (__taskid == 0) {
 
 	    if (F1<10){ 
 	      printf("\nValores de la matriz A\n");
+}
 	      imprimeMat(C2, matA, 4, 5);
+if(__taskid == 0) {
 	      printf("\nValores de la matriz B\n");
+}
 	      imprimeMat(C2, matB, 5, 3);
+if(__taskid == 0) {
 	      printf("\nValores de la matriz C\n");
+}
 	      imprimeMat(C2, matC, 4, 3);
+if(__taskid == 0) {
 	    }
 	 
 }

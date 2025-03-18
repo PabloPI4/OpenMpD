@@ -1038,6 +1038,8 @@ void ReducirReduceConstVariables() {
             }
         }
     }
+
+    varsReduceConstruir.clear();
 }
 
 string construirReductionDist(int it) {

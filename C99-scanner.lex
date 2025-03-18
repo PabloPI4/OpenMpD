@@ -47,6 +47,7 @@ extern int MPIInitDone;
 extern std::vector<const char *> argsReduceOpsDistribute;
 extern std::vector<const char *> argsAllReduceOpsDistribute;
 extern std::vector<std::string> varsReduceConstruir;
+extern std::vector<std::vector<std::string>> reduceConst;
 extern char *linea;
 
 using namespace std;
@@ -86,6 +87,7 @@ extern int error_count;
 										varsReduceConstruir.push_back(newRed);
 									}
 									ReducirReduceConstVariables();
+									varsReduceConstruir.clear();
 									for (long unsigned int i = 0; i < argsReduceOpsDistribute.size(); i++) {
 										guardarLineasDist += construirReductionDist(i);
 									}
@@ -101,10 +103,13 @@ extern int error_count;
 										varsReduceConstruir.push_back(newRed);
 									}
 									ReducirReduceConstVariables();
+									varsReduceConstruir.clear();
 									for (long unsigned int i = 0; i < argsAllReduceOpsDistribute.size(); i++) {
 										guardarLineasDist += construirAllReductionDist(i);
 									}
 								}
+
+								reduceConst.clear();
 							}
 
 							guardarLineasDist += '\n';
@@ -124,6 +129,7 @@ extern int error_count;
 										varsReduceConstruir.push_back(newRed);
 									}
 									ReducirReduceConstVariables();
+									varsReduceConstruir.clear();
 									for (long unsigned int i = 0; i < argsReduceOpsDistribute.size(); i++) {
 										output << construirReductionDist(i);
 									}
@@ -139,10 +145,13 @@ extern int error_count;
 										varsReduceConstruir.push_back(newRed);
 									}
 									ReducirReduceConstVariables();
+									varsReduceConstruir.clear();
 									for (long unsigned int i = 0; i < argsAllReduceOpsDistribute.size(); i++) {
 										output << construirAllReductionDist(i);
 									}
 								}
+
+								reduceConst.clear();
 							}
 
 							output << endl;
@@ -204,7 +213,11 @@ extern int error_count;
 		yylval.sym = new SymbolInfo(yytext, (char *) yytext);
 		return USER_DEFINED;
 	}
-	else{
+	else if (s != NULL) {
+		yylval.sym = s;
+		return IDENTIFIER;
+	}
+	else {
 		logFile << "SE METE EN IDENTIFIER" << endl;
 		SymbolInfo *s = new SymbolInfo(yytext, (char *)"IDENTIFIER");
 		yylval.sym = s;
@@ -216,6 +229,7 @@ extern int error_count;
 				conArgv = 1;
 			}
 		}
+
 		return IDENTIFIER;
 	}
 }
