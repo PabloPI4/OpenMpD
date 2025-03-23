@@ -495,7 +495,7 @@ declarator
 
 
 direct_declarator
-	: IDENTIFIER		{ $$ = $1; fprintf(stderr, "AAAA: %s, %d\n", $1->getSymbolName().data(), enFuncion);}
+	: IDENTIFIER		{ $$ = $1; }
 	| '(' declarator ')' { $$ = $2; }
 	| direct_declarator '[' type_qualifier_list assignment_expression ']'{
 		if(!$1->isArray()){

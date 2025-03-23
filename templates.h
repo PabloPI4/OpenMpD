@@ -627,70 +627,6 @@ void MPIFinalize(){
         args.clear();
     }
 
-    /*void MPIScatterChunk() {
-        if (args.size() % 2 != 0) {
-            fprintf(stderr, "insuficientes argumentos en scatter\n");
-            exit(60);
-        }
-    
-        for (long unsigned int i = 0; i < args.size(); i+=2) {
-            vector<string> values = extractValues(args.at(i));
-            string chunk = (std::string(args.at(i + 1)));
-            if (chunk.find("[") != (long unsigned int)(-1)) {
-                fprintf(stderr, "chunk de scatter incorrecto\n");
-            }
-            values.push_back(chunk);
-            SymbolInfo * infoVar = table.getSymbolInfo(values.at(0));
-    
-            string scatter =
-                "{\nint __chunk" + infoVar->getSymbolName() + ";\n" +
-                aMinuscula(infoVar->getVariableType()) + "** __" + infoVar->getSymbolName() + ";\n" +
-                "int *displs" + infoVar->getSymbolName() + " = (int *) malloc(__numprocs * sizeof(int));\n" +
-                "int *counts" + infoVar->getSymbolName() + " = (int *) malloc(__numprocs * sizeof(int));\n" +
-                "int offset" + infoVar->getSymbolName() + ";\n" +
-    
-                "if (" + values.at(1) + " % __numprocs == 0) {\n" +
-                "\t__chunk" + infoVar->getSymbolName() + " = " + values.at(1) + "/__numprocs;\n" +
-                "}\n" +
-                "else {\n" +
-                "\t__chunk" + infoVar->getSymbolName() + " = " + values.at(1) + "/__numprocs + 1;\n" +
-                "}\n" +
-    
-                "if(__taskid == 0) {\n" +
-                "\toffset" + infoVar->getSymbolName() + " = 0;\n" +
-                "\tfor (int __scatter0 = 0; __scatter0 < __numprocs - 1; __scatter0++) {\n" +
-                "\t\tcounts" + infoVar->getSymbolName() + "[__scatter0] = __chunk" + infoVar->getSymbolName() + " * " + values.at(2) + ";\n" +
-                "\t\tdispls" + infoVar->getSymbolName() + "[__scatter0] = offset" + infoVar->getSymbolName() + ";\n" +
-                "\t\toffset" + infoVar->getSymbolName() + " += __chunk" + infoVar->getSymbolName() + " * " + values.at(2) + ";\n" +
-                "\t}\n" +
-                "\tcounts" + infoVar->getSymbolName() + "[__numprocs - 1] = (" + values.at(1) + " - (" + "__chunk" + infoVar->getSymbolName() + " * " + "(__numprocs - 1))) * " + values.at(2) + ";\n" +
-                "}\n" +
-                "else if(__taskid == __numprocs - 1) {\n"
-                "\tcounts" + infoVar->getSymbolName() + "[__taskid] = (" + values.at(1) + " - (" + "__chunk" + infoVar->getSymbolName() + " * " + "(__numprocs - 1))) * " + values.at(2) + ";\n" +
-                "}\n" +
-                "else {\n" +
-                "\tcounts" + infoVar->getSymbolName() + "[__taskid] = __chunk" + infoVar->getSymbolName() + " * " + values.at(2) + ";\n" +
-                "}\n" +
-    
-                "__" + infoVar->getSymbolName() + " = (" + aMinuscula(infoVar->getVariableType()) + " **) malloc(" + values.at(1) + " * sizeof(" + aMinuscula(infoVar->getVariableType()) + " *));\n" +
-                "for (int __scatter1 = 0; __scatter1 < " + values.at(1) + "; __scatter1++) {\n" +
-                "\t__" + infoVar->getSymbolName() + "[__scatter1] = (" + aMinuscula(infoVar->getVariableType()) + " *) malloc(" + values.at(2) + " * sizeof(" + aMinuscula(infoVar->getVariableType()) + "));\n" +
-                "}\n" +
-    
-                aMinuscula(infoVar->getVariableType()) + " *" + infoVar->getSymbolName() + "aux = &" + infoVar->getSymbolName() + "[0][0];\n" +
-                aMinuscula(infoVar->getVariableType()) + " *__" + infoVar->getSymbolName() + "aux = &__" + infoVar->getSymbolName() + "[0][0];\n" +
-    
-    
-                "MPI_Scatterv(" + infoVar->getSymbolName() + "aux, counts" + infoVar->getSymbolName() + ", displs" + infoVar->getSymbolName() + ", MPI_" + infoVar->getVariableType() + ", __" + 
-                infoVar->getSymbolName() + "aux + (__chunk" + infoVar->getSymbolName() + "*" + values.at(2) + "*__taskid), counts" + infoVar->getSymbolName() + "[__taskid], " + "MPI_" +
-                infoVar->getVariableType() + ", 0, MPI_COMM_WORLD);\n}\n";
-            
-            output << scatter << endl;
-        }
-
-        args.clear();
-    }*/
-
 void MPIScatterHalo(){
 
 	vector<string> argsScatterHalo = scatterHaloArgs();
@@ -1125,7 +1061,7 @@ string construirAllReductionDist(int it) {
 }
 
 void ScatterConChunk(std::vector<const char *> argsS) {
-    std::vector<std::string> vals = extractValues(argsS.at(0));
+    std::vector<std::string> vals = extractValues(std::string(argsS.at(0)));
     std::string chunk = argsS.at(1);
 
     SymbolInfo *infoVar = table.getSymbolInfo(vals.at(0));
@@ -1173,11 +1109,16 @@ void ScatterConChunk(std::vector<const char *> argsS) {
         "\t\t\t}\n" +
         "\t\t}\n\n" +
 
-        "\t\tMPI_Scatterv(__" + vals.at(0) + "Aux, __counts, __displs, " + translateTypes(infoVar->getVariableType()) + ", " + vals.at(0) + 
-        "+__displs[__taskid], __counts[__taskid], " + translateTypes(infoVar->getVariableType()) + ", 0, MPI_COMM_WORLD);\n" +
+        "\t\tMPI_Scatterv(__" + vals.at(0) + "Aux, __counts, __displs, " + translateTypes(infoVar->getVariableType()) + ", &" + vals.at(0);
+
+        for (size_t j = 0; j < infoVar->getArrListSize(); j++) {
+            scatter += "[0]";
+        }
+
+        scatter += ("+__displs[__taskid], __counts[__taskid], " + translateTypes(infoVar->getVariableType()) + ", 0, MPI_COMM_WORLD);\n" +
 
         "\t}\n" +
-        "}\n";
+        "}\n");
 
     output << scatter << endl;
 }
@@ -1233,10 +1174,15 @@ void ScatterSinChunk(std::vector<const char *> argsS) {
         "\t\tassert((__displs[__numprocs - 1] + __counts[__numprocs - 1]) == " + vals.at(1) + mult + ");\n" +
         "\t}\n\n" +
 
-        "\tMPI_Scatterv(__" + vals.at(0) + "Aux, __counts, __displs, " + translateTypes(infoVar->getVariableType()) + ", " + vals.at(0) + 
-        "+__displs[__taskid], __counts[__taskid], " + translateTypes(infoVar->getVariableType()) + ", 0, MPI_COMM_WORLD);\n" +
+        "\tMPI_Scatterv(__" + vals.at(0) + "Aux, __counts, __displs, " + translateTypes(infoVar->getVariableType()) + ", &" + vals.at(0);
 
-        "}\n";
+        for (size_t j = 0; j < infoVar->getArrListSize(); j++) {
+            scatter += "[0]";
+        }
+
+        scatter += ("+__displs[__taskid], __counts[__taskid], " + translateTypes(infoVar->getVariableType()) + ", 0, MPI_COMM_WORLD);\n" +
+
+        "}\n");
 
     output << scatter << endl;
 }
@@ -1259,7 +1205,7 @@ void MPIScatter() {
 }
 
 void GatherConChunk(std::vector<const char *> argsG) {
-    std::vector<std::string> vals = extractValues(argsG.at(0));
+    std::vector<std::string> vals = extractValues(std::string(argsG.at(0)));
     std::string chunk = argsG.at(1);
 
     SymbolInfo *infoVar = table.getSymbolInfo(vals.at(0));
@@ -1306,14 +1252,20 @@ void GatherConChunk(std::vector<const char *> argsG) {
         "\t\t\t}\n" +
         "\t\t}\n\n" +
 
-        "\t\tMPI_Gatherv(" + vals.at(0) + "+__displs[__taskid], __counts[__taskid], " + translateTypes(infoVar->getVariableType()) +
+        "\t\tMPI_Gatherv(&" + vals.at(0);
+        
+        for (size_t j = 0; j < infoVar->getArrListSize(); j++) {
+            gather += "[0]";
+        }
+
+        gather += ("+__displs[__taskid], __counts[__taskid], " + translateTypes(infoVar->getVariableType()) +
         ", __" + vals.at(0) + "Aux, __counts, __displs, " + translateTypes(infoVar->getVariableType()) + ", 0, MPI_COMM_WORLD);\n" +
 
         "\t}\n" +
         "\tif (__taskid == 0) {\n" +
         "\t\tmemcpy(" + vals.at(0) + ", __" + vals.at(0) + "Aux, sizeof(" + aMinuscula(infoVar->getVariableType()) + ")*" + vals.at(1) + mult + ");\n" +
         "\t}\n" +
-        "}\n";
+        "}\n");
 
     output << gather << endl;
 }
@@ -1368,13 +1320,19 @@ void GatherSinChunk(std::vector<const char *> argsG) {
         "\t\tassert((__displs[__numprocs - 1] + __counts[__numprocs - 1]) == " + vals.at(1) + mult + ");\n" +
         "\t}\n\n" +
 
-        "\tMPI_Gatherv(" + vals.at(0) + "+__displs[__taskid], __counts[__taskid], " + translateTypes(infoVar->getVariableType()) +
+        "\tMPI_Gatherv(" + vals.at(0);
+        
+        for (size_t j = 0; j < infoVar->getArrListSize(); j++) {
+            gather += "[0]";
+        }
+        
+        gather += ("+__displs[__taskid], __counts[__taskid], " + translateTypes(infoVar->getVariableType()) +
         ", __" + vals.at(0) + "Aux, __counts, __displs, " + translateTypes(infoVar->getVariableType()) + ", 0, MPI_COMM_WORLD);\n" +
 
         "\tif (__taskid == 0) {\n" +
         "\t\tmemcpy(" + vals.at(0) + ", __" + vals.at(0) + "Aux, sizeof(" + aMinuscula(infoVar->getVariableType()) + ")*" + vals.at(1) + mult + ");\n" +
         "\t}\n"
-        "}\n";
+        "}\n");
 
     output << gather << endl;
 }

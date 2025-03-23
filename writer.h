@@ -90,6 +90,17 @@ void updateText() {
         linea = addToLinea;
     }
     else {
+        /*Si se esta en distribute despues de haber leido el for y no se ha leido ninguna llave se hace que solo afecte a la siguiente linea, ya que significa
+        que el for tiene la siguiente forma:
+        for (int i = 0; i < x; i++)
+            sentencia;
+        */
+        if (enFor == -1 && dist_n_llaves == 0 && linea) {
+            if (comprobarLlavesCluster(linea) && strstr(linea, "for") == NULL) {
+                dist_n_llaves = -100;
+            }
+        }
+
         //Si está en estado for en distribute se traduce la cabecera del for y se guarda el inicio y final del for sin traducir, ya que lo usara MPIDistribute
         if (enFor == 1) {
             string ini = "";
@@ -135,20 +146,9 @@ void updateText() {
         }
 
         //Si se esta en cluster y no se ha leido todavia una llave pero la linea no esta vacia, se hace que el cluster solo afecte a esta linea
-        if (enCluster && n_llaves == 0 && linea) {
+        if (enCluster && n_llaves == 0 && !enDistribute && linea) {
             if (comprobarLlavesCluster(linea)) {
                 n_llaves = -100;
-            }
-        }
-
-        /*Si se esta en distribute despues de haber leido el for y no se ha leido ninguna llave se hace que solo afecte a la siguiente linea, ya que significa
-        que el for tiene la siguiente forma:
-        for (int i = 0; i < x; i++)
-            sentencia;
-        */
-        if (enFor == -1 && dist_n_llaves == 0 && linea) {
-            if (comprobarLlavesCluster(linea) && strstr(linea, "for") == NULL) {
-                dist_n_llaves = -100;
             }
         }
 
