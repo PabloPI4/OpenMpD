@@ -23,6 +23,7 @@ char *linea = NULL;
 string guardarLineasDist = "";
 char *distVar;
 int dist_n_llaves = -100;
+int meterLLavesFor = 0;
 
 extern int n_llaves;
 extern int enCluster;
@@ -105,6 +106,10 @@ void updateText() {
         if (enFor == 1) {
             string ini = "";
             string fin = "";
+
+            if (dist_n_llaves == 0) {
+                meterLLavesFor = 1;
+            }
 
             calcularDistribute(&ini, &fin, &linea);
 
@@ -192,6 +197,10 @@ void updateText() {
         }
         //Si se han leido el mismo numero de llaves de apertura que de cierre estando en distribute y estos dos son mayor que 0, entonces se cierra el distribute
         if (enDistribute && dist_n_llaves == -100) {
+            if (meterLLavesFor == 1) {
+                output << "}" << endl;
+            }
+            
             if (scheduleDist.size() > 0) {
                 output << "\t}" << endl;
                 scheduleDist = "";
@@ -209,6 +218,7 @@ void updateText() {
             }
             enDistribute = 0;
             enFor = 0;
+            meterLLavesFor = 0;
         }
         
         if (llamadaFuncion) {
@@ -338,7 +348,7 @@ void calcularDistribute(string *ini, string *fin, char **linea) {
         int menorOmayor;
 
         if ((pointerInc = strstr(guardarInc, distVar)) == NULL) {
-            (*linea) = (char *) realloc((*linea), 111 + operacion.size() + scheduleDist.size() + guardIncCont);
+            (*linea) = (char *) realloc((*linea), 111 + operacion.size() + scheduleDist.size() + guardIncCont + meterLLavesFor);
     
             strcpy((*linea), "for (int __distrib = __distribSched; __distrib ");
             strncpy((*linea) + 47, operacion.data(), operacion.size());
@@ -365,21 +375,25 @@ void calcularDistribute(string *ini, string *fin, char **linea) {
                 menorOmayor = 3;
             }
 
+            if (meterLLavesFor) {
+                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(guardarInc), "{");
+            }
+
             if (menorOmayor == 0) {
-                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(guardarInc), "if(__distrib >= __end) {continue;}");
+                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(guardarInc) + meterLLavesFor, "if(__distrib >= __end) {continue;}");
             }
             else if (menorOmayor == 1) {
-                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(guardarInc), "if(__distrib <= __end) {continue;}");
+                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(guardarInc) + meterLLavesFor, "if(__distrib <= __end) {continue;}");
             }
             else if (menorOmayor == 2) {
-                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(guardarInc), "if(__distrib > __end) {continue;}");
+                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(guardarInc) + meterLLavesFor, "if(__distrib > __end) {continue;}");
             }
             else {
-                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(guardarInc), "if(__distrib < __end) {continue;}");
+                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(guardarInc) + meterLLavesFor, "if(__distrib < __end) {continue;}");
             }
         }
         else {
-            (*linea) = (char *) realloc((*linea), 111 + operacion.size() + scheduleDist.size() + guardIncCont - strlen(distVar));
+            (*linea) = (char *) realloc((*linea), 111 + operacion.size() + scheduleDist.size() + guardIncCont - strlen(distVar) + meterLLavesFor);
             
             strcpy((*linea), "for (int __distrib = __distribSched; __distrib ");
             strncpy((*linea) + 47, operacion.data(), operacion.size());
@@ -408,17 +422,21 @@ void calcularDistribute(string *ini, string *fin, char **linea) {
                 menorOmayor = 3;
             }
 
+            if (meterLLavesFor) {
+                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(pointerInc + strlen(distVar)), "{");
+            }
+
             if (menorOmayor == 0) {
-                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(pointerInc + strlen(distVar)), "if(__distrib >= __end) {continue;}");
+                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(pointerInc + strlen(distVar)) + meterLLavesFor, "if(__distrib >= __end) {continue;}");
             }
             else if (menorOmayor == 1) {
-                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(pointerInc + strlen(distVar)), "if(__distrib <= __end) {continue;}");
+                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(pointerInc + strlen(distVar)) + meterLLavesFor, "if(__distrib <= __end) {continue;}");
             }
             else if (menorOmayor == 2) {
-                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(pointerInc + strlen(distVar)), "if(__distrib > __end) {continue;}");
+                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(pointerInc + strlen(distVar)) + meterLLavesFor, "if(__distrib > __end) {continue;}");
             }
             else {
-                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(pointerInc + strlen(distVar)), "if(__distrib < __end) {continue;}");
+                strcpy((*linea) + 76 + operacion.size() + scheduleDist.size() + (pointerInc - guardarInc) + strlen(pointerInc + strlen(distVar)) + meterLLavesFor, "if(__distrib < __end) {continue;}");
             }
         }
 
