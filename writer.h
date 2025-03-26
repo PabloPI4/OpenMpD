@@ -97,7 +97,7 @@ void updateText() {
             sentencia;
         */
         if (enFor == -1 && dist_n_llaves == 0 && linea) {
-            if (comprobarLlavesCluster(linea) && strstr(linea, "for") == NULL) {
+            if (comprobarLlavesCluster(linea) && (strstr(linea, "for") == NULL || strstr(linea, "while") == NULL || strstr(linea, "if") == NULL || strstr(linea, "switch") == NULL)) {
                 dist_n_llaves = -100;
             }
         }

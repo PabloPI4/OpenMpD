@@ -23,6 +23,7 @@ using namespace std;
 #include <assert.h>
 #include <ostream>
 #include <iostream>
+#include <fstream>
 
 /*the scanner function*/
 extern int openmp_lex(); 
@@ -69,6 +70,7 @@ int enDeclare = 0;
 extern int dist_n_llaves;
 extern string scheduleDist;
 extern string guardarLineasDist;
+extern ofstream output;
 
 void * (*exprParse)(const char*) = NULL;
 
@@ -93,6 +95,7 @@ extern void aumentarReduction();
 extern void IncludeString();
 extern void MPIDeclareCluster();
 extern void MPIScatter();
+extern void MPIEmpezarSecuencial();
 
 %}
 
@@ -338,25 +341,27 @@ openmp_directive : parallel_directive
                           MPIInitMainDone = 1;
                         }
                         else {
+                          long posActual = output.tellp();
                           MPIInitParte2();
+                          output.seekp(posActual);
                         }
                       	main_init = 0;
                       	MPIInitDone = 1;
                       	main_end = 1;
                       }
 
-                      enCluster = 1;
-
-                      if (!enCluster && !enFuncion) {
+                      if (!enCluster && (enFuncion > 2 || enMain > 1)) {
                         MPIWriteCluster();
                       }
+
+                      enCluster = 1;
                     }
                     directiveAuxCluster
                  ;
 
 directiveAuxCluster
                   : cluster_directive {n_llaves = 0;}
-				          | cluster_data_directive
+				          | cluster_data_directive {enCluster = 0; MPIEmpezarSecuencial();}
 				          | cluster_update_directive
 				          | cluster_teams_directive
 				          | cluster_distribute_directive {dist_n_llaves = 0;}
@@ -2517,22 +2522,23 @@ cluster_clause : alloc_clause
 			   ;
 				
 cluster_data_clause : alloc_clause
-				    | broad_clause
-				    | scatter_clause
-				    | gather_clause
-				    | allgather_clause
-				    | halo_clause
-				    | reduction_clause
-				    | allreduction_clause
+				    			  | broad_clause
+			              | {enScatter = 1; chunk_pos = 0; aumentarScatter();} scatter_clause {enScatter = 0; MPIScatter(); if (!includeStringDone){includeStringDone = 1; IncludeString();}}
+			              | {enGather = 1; chunk_pos = 0; aumentarGather(); enGatherInst = 1;} gather_clause {enGatherInst = 0; if (!includeStringDone){includeStringDone = 1; IncludeString();}}
+			              | {enAllGather = 1; chunk_pos = 0; aumentarAllGather(); enAllGatherInst = 1;} allgather_clause {enAllGatherInst = 0; if (!includeStringDone){includeStringDone = 1; IncludeString();}}
+			              | halo_clause
+			              | {enReductionCluster = 1;} reduction_clause_cluster
+			              | {enAllReductionCluster = 1;} allreduction_clause_cluster
 				    ;
+
 cluster_update_clause : alloc_clause
-				    | broad_clause
-				    | scatter_clause
-				    | gather_clause
-				    | allgather_clause
-				    | halo_clause
-				    | reduction_clause
-				    | allreduction_clause
+				    			  | broad_clause
+			              | {enScatter = 1; chunk_pos = 0; aumentarScatter();} scatter_clause {enScatter = 0; MPIScatter(); if (!includeStringDone){includeStringDone = 1; IncludeString();}}
+			              | {enGather = 1; chunk_pos = 0; aumentarGather(); enGatherInst = 1;} gather_clause {enGatherInst = 0; if (!includeStringDone){includeStringDone = 1; IncludeString();}}
+			              | {enAllGather = 1; chunk_pos = 0; aumentarAllGather(); enAllGatherInst = 1;} allgather_clause {enAllGatherInst = 0; if (!includeStringDone){includeStringDone = 1; IncludeString();}}
+			              | halo_clause
+			              | {enReductionCluster = 1;} reduction_clause_cluster
+			              | {enAllReductionCluster = 1;} allreduction_clause_cluster
 				    ;
 
 cluster_teams_clause : if_target_clause
@@ -3223,8 +3229,6 @@ halo_clause : HALO { } '(' var_chunk ')'
 gather_clause : GATHER { } '(' var_chunk_list_cluster ')' ;
 			  
 allgather_clause : ALLGATHER { } '(' var_chunk_list_cluster ')' ;
-
-allreduction_clause : ALLREDUCTION { } '(' reduction_parameter ':' var_list ')' ;
 
 firstprivate_clause : FIRSTPRIVATE {if (enDistributeExtendido > 1) {guardarLineasDist += " firstprivate("; meterEnClause = 1;}} '(' var_list ')' {if (enDistributeExtendido > 1) {guardarLineasDist += ")"; meterEnClause = 0;}}
                     ;

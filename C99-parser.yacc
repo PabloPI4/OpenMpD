@@ -72,7 +72,7 @@ postfix_expression
 	: primary_expression {$$ = $1;}
 	| postfix_expression '[' expression ']'
 	| postfix_expression '(' ')'
-	| postfix_expression '(' {if($1->isFunction() && !enCluster){output << "}" << endl; llamadaFuncion = 1;}} argument_expression_list ')'
+	| postfix_expression '(' {if($1->isFunction() && !enCluster){output << "}}" << endl; llamadaFuncion = 1;}} argument_expression_list ')'
 	| postfix_expression '.' IDENTIFIER
 	| postfix_expression PTR_OP IDENTIFIER
 	| postfix_expression INC_OP
@@ -699,8 +699,10 @@ block_item
 			output.write("                                                                                                                                                      \n", 151);
 		}
 		else if (enMain && MPIInitMainDone == 1 && posInit == -100) {
+			long posActual = output.tellp();
 			posInit = output.tellp();
 			MPIInitParte2();
+			output.seekp(posActual + 151);
 		}
 
 		if (!enMain && enFuncion == 2 && !enCluster) {

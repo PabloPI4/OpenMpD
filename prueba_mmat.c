@@ -51,6 +51,7 @@ void Mult_ikj(int fA, int cA, int cB, float matA[fA][cA], float matB[cA][cB], fl
 
 // #pragma omp cluster broad(fA, cA, fB, cB) scatter(matA[fA*cA]:chunk(n*cA)) broad(matB[fB*cB]) gather(matC[fA*cB]:chunk(n*cB))
 #pragma omp cluster broad(fA, cA, fB, cB) scatter(matA[fA*cA]:chunk(cA)) broad(matB[fB*cB]) gather(matC[fA*cB]:chunk(cB))
+{
 #pragma omp teams distribute dist_schedule(static,1)
 #pragma omp parallel for private(r)
      for (i=0; i<fC; i++)
@@ -60,6 +61,7 @@ void Mult_ikj(int fA, int cA, int cB, float matA[fA][cA], float matB[cA][cB], fl
                matC[i][j] += r * matB[k][j];
 
         }
+    }
 }
 
 void Mult_ijk(int fA, int cA, int cB, float matA[fA][cA], float matB[cA][cB],
@@ -74,6 +76,7 @@ float matC[fA][cB]) {
 // Creo que no vale la pena plantearlo
 // #pragma omp cluster broad(fA, cA, fB, cB) scatter(matA[fA][cA]:chunk(n*cA)) broad(matB[fB][cB]) gather(matC[fA][cB]:chunk(n*cB))
 #pragma omp cluster broad(fA, cA, fB, cB) scatter(matA[fA][cA]:chunk(cA)) broad(matB[fB][cB]) gather(matC[fA][cB]:chunk(cB))
+{
 #pragma omp teams distribute dist_schedule(static,1)
 #pragma omp parallel for private(result)
     for (i=0; i<fC; i++) {
@@ -85,6 +88,7 @@ float matC[fA][cB]) {
             matC[i][j] = result;
         }
     }
+}
 }
 
 

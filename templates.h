@@ -482,8 +482,6 @@ void MPIInit(){
 }
 
 void MPIInitParte2(){
-    long posActual = output.tellp();
-
     output.seekp(posInit);
 
     if (conArgc && conArgv) {
@@ -499,7 +497,6 @@ void MPIInitParte2(){
         output.write("\tMPI_Init(NULL , NULL);\n\tMPI_Comm_size(MPI_COMM_WORLD,&__numprocs);\n\tMPI_Comm_rank(MPI_COMM_WORLD,&__taskid);\n\tDeclareTypesMPI();\nif (__taskid == 0) {\n", 151);
     }
     
-    output.seekp(posActual + 151);
     statementZone = 1;
 }
 
