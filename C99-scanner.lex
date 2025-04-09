@@ -49,6 +49,7 @@ extern std::vector<const char *> argsAllReduceOpsDistribute;
 extern std::vector<std::string> varsReduceConstruir;
 extern std::vector<std::vector<std::string>> reduceConst;
 extern char *linea;
+extern int enFuncion;
 
 using namespace std;
 
@@ -209,16 +210,23 @@ extern int error_count;
 	count();
 	SymbolInfo *s = table.getSymbolInfo(yytext);
 	if(s != NULL && s->getSymIsType()){
-		logFile << "SE METE EN USER_DEFINED" << endl;
+		if (strcmp(yytext, "FILE") == 0) {
+			fprintf(stderr, "FILE en USER_DEFINED\n");
+		}
 		yylval.sym = new SymbolInfo(yytext, (char *) yytext);
 		return USER_DEFINED;
 	}
 	else if (s != NULL) {
+		if (strcmp(yytext, "FILE") == 0) {
+			fprintf(stderr, "FILE en IDENTIFIER\n");
+		}
 		yylval.sym = s;
 		return IDENTIFIER;
 	}
 	else {
-		logFile << "SE METE EN IDENTIFIER" << endl;
+		if (strcmp(yytext, "FILE") == 0) {
+			fprintf(stderr, "FILE en IDENTIFIER\n");
+		}
 		SymbolInfo *s = new SymbolInfo(yytext, (char *)"IDENTIFIER");
 		yylval.sym = s;
 		if (!MPIInitDone) {

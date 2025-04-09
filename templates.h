@@ -46,6 +46,7 @@ extern int chunk_pos;
 extern int enDistribute;
 extern int conArgc;
 extern int conArgv;
+extern int enSecuencial;
 
 extern int chunk;
 extern int task;
@@ -57,13 +58,13 @@ extern SymbolTable table;
 
 int matrizTipos[11][11] = {{-1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1},
                 {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 2},
-                {-1, -1, -1, -1, -1, -1, -1, -1, 0, -1, -1},
+                {-1, -1, -1, -1, -1, -1, -1, -1, 2, -1, -1},
                 {-1, -1, -1, -1, -1, -1, 1, -1, 0, -1, -1},
                 {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -2},
                 {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1},
                 {-1, 0, -1, 0, -1, -1, 1, -1, -1, -1, 1},
                 {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-                {-1, -1, 1, 1, -1, -1, -1, -1, -1, -1, -1},
+                {-1, -1, -2, 1, -1, -1, -1, -1, -1, -1, -1},
                 {0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
                 {0, -2, -1, -1, -1, 0, 0, -1, -1, -1, -1}};
 
@@ -162,6 +163,13 @@ string translateTypes(string type) {
     if (structComp) {
         structComp += 7;
     }
+    else {
+        structComp = strstr(type.data(), "USER_DEFINED");
+
+        if (structComp) {
+            structComp += 7;
+        }
+    }
 
     for (unsigned long int i = 0; i < tiposMPI.size(); i++) {
         for (unsigned long int j = 1; j < tiposMPI.at(i).size(); j++) {
@@ -181,7 +189,7 @@ string translateTypes(string type) {
     }
 
     if (structComp) {
-        fprintf(stderr, "tipo de MPI no declarado\n");
+        fprintf(stderr, "tipo de MPI: %s, no declarado\n", type.data());
         exit(49);
     }
 
@@ -303,7 +311,7 @@ string translateTypes(string type) {
     }
 
     if (typeRes == "MPI") {
-        fprintf(stderr, "tipo de MPI no permitido\n");
+        fprintf(stderr, "tipo de MPI: %s, no permitido\n", type.data());
         exit(50);
     }
 
@@ -496,6 +504,8 @@ void MPIInitParte2(){
     else {
         output.write("\tMPI_Init(NULL , NULL);\n\tMPI_Comm_size(MPI_COMM_WORLD,&__numprocs);\n\tMPI_Comm_rank(MPI_COMM_WORLD,&__taskid);\n\tDeclareTypesMPI();\nif (__taskid == 0) {\n", 151);
     }
+
+    enSecuencial = 1;
     
     statementZone = 1;
 }

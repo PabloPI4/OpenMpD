@@ -18,12 +18,13 @@ int enFuncion = 0;
 int llamadaFuncion = 0;
 int activarDeclaracion = 0;
 int escribirSeq = 0;
+int enSecuencial = 0;
 extern int enCluster;
 
 extern ofstream logFile;
 extern ofstream errFile;
 
-SymbolTable table(38);
+extern SymbolTable table;
 %}
 
 %union{
@@ -72,7 +73,7 @@ postfix_expression
 	: primary_expression {$$ = $1;}
 	| postfix_expression '[' expression ']'
 	| postfix_expression '(' ')'
-	| postfix_expression '(' {if($1->isFunction() && !enCluster){output << "}}" << endl; llamadaFuncion = 1;}} argument_expression_list ')'
+	| postfix_expression '(' {/*if($1->isFunction() && !enCluster){output << "}" << endl; llamadaFuncion = 1;}*/} argument_expression_list ')'
 	| postfix_expression '.' IDENTIFIER
 	| postfix_expression PTR_OP IDENTIFIER
 	| postfix_expression INC_OP
@@ -323,54 +324,54 @@ type_specifier
     : { if (posVarsInit == -100 && !MPIInitDone) {
 			posVarsInit = output.tellp();
 			output.write("                                                            \n", 61);
-		} } VOID          { $$ = new SymbolInfo("void", "VOID"); }
+		}} VOID          { $$ = new SymbolInfo("void", "VOID"); }
     | { if (posVarsInit == -100 && !MPIInitDone) {
 			posVarsInit = output.tellp();
 			output.write("                                                            \n", 61);
-		} } CHAR          { $$ = new SymbolInfo("char", "CHAR"); }
+		}} CHAR          { $$ = new SymbolInfo("char", "CHAR"); }
     | { if (posVarsInit == -100 && !MPIInitDone) {
 			posVarsInit = output.tellp();
 			output.write("                                                            \n", 61);
-		} } SHORT         { $$ = new SymbolInfo("short", "SHORT"); }
+		}} SHORT         { $$ = new SymbolInfo("short", "SHORT"); }
     | { if (posVarsInit == -100 && !MPIInitDone) {
 			posVarsInit = output.tellp();
 			output.write("                                                            \n", 61);
-		} } INT           { $$ = new SymbolInfo("int", "INT"); }
+		}} INT           { $$ = new SymbolInfo("int", "INT"); }
     | { if (posVarsInit == -100 && !MPIInitDone) {
 			posVarsInit = output.tellp();
 			output.write("                                                            \n", 61);
-		} } LONG          { $$ = new SymbolInfo("long", "LONG"); }
+		}} LONG          { $$ = new SymbolInfo("long", "LONG"); }
     | { if (posVarsInit == -100 && !MPIInitDone) {
 			posVarsInit = output.tellp();
 			output.write("                                                            \n", 61);
-		} } FLOAT         { $$ = new SymbolInfo("float", "FLOAT"); }
+		}} FLOAT         { $$ = new SymbolInfo("float", "FLOAT"); }
     | { if (posVarsInit == -100 && !MPIInitDone) {
 			posVarsInit = output.tellp();
 			output.write("                                                            \n", 61);
-		} } DOUBLE        { $$ = new SymbolInfo("double", "DOUBLE"); }
+		}} DOUBLE        { $$ = new SymbolInfo("double", "DOUBLE"); }
     | { if (posVarsInit == -100 && !MPIInitDone) {
 			posVarsInit = output.tellp();
 			output.write("                                                            \n", 61);
-		} } SIGNED        { $$ = new SymbolInfo("signed", "SIGNED"); }
+		}} SIGNED        { $$ = new SymbolInfo("signed", "SIGNED"); }
     | { if (posVarsInit == -100 && !MPIInitDone) {
 			posVarsInit = output.tellp();
 			output.write("                                                            \n", 61);
-		} } UNSIGNED      { $$ = new SymbolInfo("unsigned", "UNSIGNED"); }
+		}} UNSIGNED      { $$ = new SymbolInfo("unsigned", "UNSIGNED"); }
     | { if (posVarsInit == -100 && !MPIInitDone) {
 			posVarsInit = output.tellp();
 			output.write("                                                            \n", 61);
-		} } BOOL          { $$ = new SymbolInfo("bool", "BOOL"); }
+		}} BOOL          { $$ = new SymbolInfo("bool", "BOOL"); }
     | { if (posVarsInit == -100 && !MPIInitDone) {
 			posVarsInit = output.tellp();
 			output.write("                                                            \n", 61);
-		} } COMPLEX       { $$ = new SymbolInfo("complex", "COMPLEX"); }
+		}} COMPLEX       { $$ = new SymbolInfo("complex", "COMPLEX"); }
     | { if (posVarsInit == -100 && !MPIInitDone) {
 			posVarsInit = output.tellp();
 			output.write("                                                            \n", 61);
-		} } IMAGINARY     { $$ = new SymbolInfo("imaginary", "IMAGINARY"); }
-	| USER_DEFINED  { $$ = new SymbolInfo("user_defined", "USER_DEFINED"); }
-    | struct_or_union_specifier  { $$ = $1; }
-    | enum_specifier             { $$ = $1; }
+		}} IMAGINARY     { $$ = new SymbolInfo("imaginary", "IMAGINARY"); }
+	| USER_DEFINED  { $$ = $1;}
+    | struct_or_union_specifier  { $$ = $1;}
+    | enum_specifier             { $$ = $1;}
     ;
 
 struct_or_union_specifier
@@ -691,7 +692,7 @@ block_item_list
 	;
 
 block_item
-	: {if((enFuncion == 2 || enMain == 2) && activarDeclaracion){output << "}" << endl;}} declaration {if ((enFuncion == 2 || enMain == 2) && activarDeclaracion) {escribirSeq = 1;}}
+	: {if((enFuncion == 2 || enMain == 2) && activarDeclaracion && enSecuencial){output << "}" << endl; enSecuencial = 0;}} declaration {if ((enFuncion == 2 || enMain == 2) && activarDeclaracion) {escribirSeq = 1;}}
 	| 
 	{
 		if(enMain && MPIInitMainDone == 0 && posInit == -100){
@@ -705,8 +706,9 @@ block_item
 			output.seekp(posActual + 151);
 		}
 
-		if (!enMain && enFuncion == 2 && !enCluster) {
+		if (!enCluster && (enMain == 2 || enFuncion == 2) && !enSecuencial) {
 			output << "if (__taskid == 0) {" << endl;
+			enSecuencial = 1;
 		}
 
 		activarDeclaracion = 1;
@@ -741,23 +743,25 @@ jump_statement
 	| 
 	RETURN
 	{	
-		if(main_end == 1 && MPIInitDone == 1){
+		if(main_end == 1 && MPIInitDone == 1 && enMain){
 			MPIFinalize();
 			main_end = 0;
 		}
 		if (enFuncion == 2) {
 			output << "}" << endl;
+			enFuncion = 0;
 		}
 	}  ';'
 	|
 	RETURN
 	{	
-		if(main_end == 1 && MPIInitDone == 1){
+		if(main_end == 1 && MPIInitDone == 1 && enMain){
 			MPIFinalize();
 			main_end = 0;
 		}
 		if (enFuncion == 2) {
 			output << "}" << endl;
+			enFuncion = 0;
 		}
 	}
 	expression ';'
@@ -765,7 +769,7 @@ jump_statement
 
 translation_unit
 	: {output.write("                   \n                                    \n", 57);} external_declaration
-	| translation_unit external_declaration {logFile << "SE METE AQUI" << endl;}
+	| translation_unit external_declaration
 	;
 
 external_declaration
@@ -800,6 +804,7 @@ function_definition
 
 		enFuncion = 1;
 		activarDeclaracion = 0;
+		enSecuencial = 0;
 	} compound_statement {
 		$2->setIsDefined(true);
 		table.exitScope();
@@ -844,6 +849,7 @@ function_definition
 
 		enFuncion = 1;
 		activarDeclaracion = 0;
+		enSecuencial = 0;
 	} compound_statement {
 		$2->setIsDefined(true);
 		table.exitScope();

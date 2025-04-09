@@ -152,7 +152,7 @@ void updateText() {
 
         //Si se esta en cluster y no se ha leido todavia una llave pero la linea no esta vacia, se hace que el cluster solo afecte a esta linea
         if (enCluster && n_llaves == 0 && !enDistribute && linea) {
-            if (comprobarLlavesCluster(linea)) {
+            if (comprobarLlavesCluster(linea) && strstr(linea, ";")) {
                 n_llaves = -100;
             }
         }
@@ -219,15 +219,6 @@ void updateText() {
             enDistribute = 0;
             enFor = 0;
             meterLLavesFor = 0;
-        }
-        
-        if (llamadaFuncion) {
-            output << "if(__taskid == 0) {" << endl; llamadaFuncion = 0;
-        }
-
-        if (escribirSeq) {
-            output << "if(__taskid == 0){" << endl;
-            escribirSeq = 0;
         }
     }
     

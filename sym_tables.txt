@@ -1,6 +1,10 @@
 ScopeTable # 1.1
- 8 --> | < valores , Pointer Symbol , INT > |
 
 ScopeTable # 1
- 33 --> | < main , Function Symbol , INT , Parameter List:  > |
+ 4 --> | < div_t , TYPEDEF_STRUCT > |
+ 8 --> | < lldiv_t , TYPEDEF_STRUCT > |
+ 16 --> | < wchar_t , TYPEDEF_INT > |
+ 22 --> | < size_t , TYPEDEF_LONG_UNSIGNED_INT > |
+ 24 --> | < __ctype_get_mb_cur_max , Function Symbol , EXTERN_size_t , Parameter List: < void , VOID ,  > > |
+ 26 --> | < ldiv_t , TYPEDEF_STRUCT > |
 

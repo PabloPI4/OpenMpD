@@ -71,6 +71,7 @@ extern int dist_n_llaves;
 extern string scheduleDist;
 extern string guardarLineasDist;
 extern ofstream output;
+extern int enSecuencial;
 
 void * (*exprParse)(const char*) = NULL;
 
@@ -350,7 +351,7 @@ openmp_directive : parallel_directive
                       	main_end = 1;
                       }
 
-                      if (!enCluster && (enFuncion > 2 || enMain > 1)) {
+                      if (enSecuencial && !enCluster && (enFuncion >= 2 || enMain >= 1)) {
                         MPIWriteCluster();
                       }
 

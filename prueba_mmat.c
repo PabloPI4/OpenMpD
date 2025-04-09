@@ -33,9 +33,6 @@ void inicializarMatriz (int F, int C, float mat[F][C]){
 void Mult_ikj(int fA, int cA, int cB, float matA[fA][cA], float matB[cA][cB], float matC[fA][cB]) {
      float r;
      int i,j,k;
-     int cC = cB; // numero de columnas de C == columnas de B
-     int fC = fA; // numero de filas de C == filas de A
-     int fB = cA;
      // Es necesario inicializar previamente C a cero
      // for (i=0; i< fC; i++)
      //   for (j=0; j< cC; j++)
@@ -52,6 +49,9 @@ void Mult_ikj(int fA, int cA, int cB, float matA[fA][cA], float matB[cA][cB], fl
 // #pragma omp cluster broad(fA, cA, fB, cB) scatter(matA[fA*cA]:chunk(n*cA)) broad(matB[fB*cB]) gather(matC[fA*cB]:chunk(n*cB))
 #pragma omp cluster broad(fA, cA, fB, cB) scatter(matA[fA*cA]:chunk(cA)) broad(matB[fB*cB]) gather(matC[fA*cB]:chunk(cB))
 {
+    int cC = cB; // numero de columnas de C == columnas de B
+    int fC = fA; // numero de filas de C == filas de A
+    int fB = cA;
 #pragma omp teams distribute dist_schedule(static,1)
 #pragma omp parallel for private(r)
      for (i=0; i<fC; i++)
@@ -68,15 +68,15 @@ void Mult_ijk(int fA, int cA, int cB, float matA[fA][cA], float matB[cA][cB],
 float matC[fA][cB]) {
     float result;
     int i,j,k;
-    int cC = cB; // numero de columnas de C == columnas de B
-    int fC = fA; // numero de filas de C == filas de A
-    int fB = cA; 
 
 // Ni OpenMP ni MPI se llevan bien como variables que no sean 1-D, contiguas
 // Creo que no vale la pena plantearlo
 // #pragma omp cluster broad(fA, cA, fB, cB) scatter(matA[fA][cA]:chunk(n*cA)) broad(matB[fB][cB]) gather(matC[fA][cB]:chunk(n*cB))
 #pragma omp cluster broad(fA, cA, fB, cB) scatter(matA[fA][cA]:chunk(cA)) broad(matB[fB][cB]) gather(matC[fA][cB]:chunk(cB))
 {
+    int cC = cB; // numero de columnas de C == columnas de B
+    int fC = fA; // numero de filas de C == filas de A
+    int fB = cA;
 #pragma omp teams distribute dist_schedule(static,1)
 #pragma omp parallel for private(result)
     for (i=0; i<fC; i++) {
@@ -134,12 +134,14 @@ int main (int argc, char* argv[])
     inicializarMatriz (F2, C2, matB);
 
     gettimeofday(&t, NULL);
+    #pragma omp cluster
     Mult_ijk(F1, C1, C2, matA, matB, matC);
     gettimeofday(&t2, NULL);
     segundos = (((t2.tv_usec - t.tv_usec)/1000000.0f)  + (t2.tv_sec - t.tv_sec));
     printf("Total time using ijk was %f seconds\n", segundos);
     
     gettimeofday(&t, NULL);
+    #pragma omp cluster
     Mult_ikj(F1, C1, C2, matA, matB, matC_ikj);
     gettimeofday(&t2, NULL);
     segundos = (((t2.tv_usec - t.tv_usec)/1000000.0f)  + (t2.tv_sec - t.tv_sec));
@@ -165,6 +167,12 @@ int main (int argc, char* argv[])
 	    printf("Test Failed in ikj!!!\n");
 	else printf("Test Passed!!!\n");
 
+    #pragma omp cluster
+    if (F1 < 10)
+    {
+        imprimeMat();
+    }
+    
     if (F1<10){ //Si las matrices son pequeñas, se muestran los valores por pantalla
       printf("\nValores de la matriz A\n");
       imprimeMat(C2, matA, 4, 5);
