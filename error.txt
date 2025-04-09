@@ -1,6 +1,0 @@
-Error abriendo archivo para redireccion de preprocesador
-Error en pasada de preprocesador
-Error at line 36 column: 13: syntax error
-
-Error at line 41 column: 57: syntax error
-
