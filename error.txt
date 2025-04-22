@@ -1,3 +1,0 @@
-Error in preprocesador at line 36 column: 0: syntax error
-
-Error: tga_write already exists in scope 
