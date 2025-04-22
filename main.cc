@@ -7,7 +7,7 @@
 #include "SymbolTable.h"
 
 extern int yydebug;
-extern FILE *yyin, *yyout;
+extern FILE *yyin, *yyout, *prepro_in;
 FILE *inputFile;
 
 extern char *linea;
@@ -15,7 +15,9 @@ extern int MVL_LINNUM;
 
 extern void yyerror(const char *s);
 extern int yyparse ();
+extern int prepro_parse();
 extern void lastLine();
+extern void parsePrepro(char *filename);
 
 std::ofstream logFile, errFile, sym_tables, output;
 
@@ -51,14 +53,15 @@ int main( int argc, const char* argv[] )
   sym_tables.open("sym_tables.txt");
 
   char *filePrepo;
-  if ((filePrepo = (char *) malloc(strlen(argv[1]) + 7)) == NULL) {
+  if ((filePrepo = (char *) malloc(strlen(argv[1]) + 12)) == NULL) {
     errFile << "Error asignando memoria dinámica" << endl;
     exit(254);
   }
 
-  strcpy(filePrepo, argv[1]);
-  strcpy(filePrepo + strlen(argv[1]), ".prepo");
-  filePrepo[strlen(argv[1]) + 6] = '\0';
+  strcpy(filePrepo, "/tmp/");
+  strcpy(filePrepo + 5, argv[1]);
+  strcpy(filePrepo + strlen(argv[1]) + 5, ".prepo");
+  filePrepo[strlen(argv[1]) + 11] = '\0';
 
   switch (fork()) {
     case -1: errFile << "Error en fork" << endl; exit(255);
@@ -66,7 +69,8 @@ int main( int argc, const char* argv[] )
     case 0:
           int prepo;
 
-          if ((prepo = open(filePrepo, O_CREAT|O_RDWR|O_TRUNC, "rw")) == -1) {
+          if ((prepo = open(filePrepo, O_CREAT|O_RDWR|O_TRUNC, 0600)) == -1) {
+            perror("ERROR");
             errFile << "Error abriendo archivo para redireccion de preprocesador" << endl;
             exit(253);
           }
@@ -89,13 +93,21 @@ int main( int argc, const char* argv[] )
     errFile << "Error en pasada de preprocesador" << endl;
   }
 
-  FILE *fichPreprocesador;
+  FILE *preprocesado = fopen(filePrepo, "r");
 
-  fichPreprocesador = fopen(filePrepo, "r");
+  if (!preprocesado) {
+    errFile << "Error abriendo fichero de preprocesador: " << filePrepo << endl;
+    exit(45);
+  }
 
-  yyin = fichPreprocesador;
+  prepro_in = preprocesado;
 
-  yyparse();
+  if (prepro_parse()) {
+    errFile << "Error ejecutando preprocesador" << endl;
+    exit(46);
+  }
+
+  fclose(preprocesado);
 
   switch (fork()) {
     case -1: errFile << "Error en fork" << endl; exit(255);
@@ -114,7 +126,6 @@ int main( int argc, const char* argv[] )
 
   yyin=inputFile;
 
-  fclose(fichPreprocesador);
   free(filePrepo);
 
   //yydebug = 1;  // Enable Bison's debug mode

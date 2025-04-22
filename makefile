@@ -10,7 +10,7 @@ YFLAGS= -g -k -d -v -t
 
 LEX= flex -p 
 
-OBJS=ompparser.o omplexer.o y.tab.o lex.yy.o main.o
+OBJS=preproparser.o preprolexer.o ompparser.o omplexer.o y.tab.o lex.yy.o main.o
 
 all: fparse
 
@@ -28,6 +28,18 @@ omplexer.o: omplexer.cc ompparser.hh
 
 omplexer.cc: omplexer.ll
 	$(LEX) -o omplexer.cc omplexer.ll
+
+preproparser.o: preproparser.cc preproparser.hh
+	$(CC) -c $(CFLAGS) preproparser.cc
+
+preproparser.cc preproparser.hh: preproparser.yy
+	$(YACC) $(YFLAGS) -o preproparser.cc preproparser.yy
+
+preprolexer.o: preprolexer.cc preproparser.hh
+	$(CC) -c $(CFLAGS) preprolexer.cc
+
+preprolexer.cc preprolexer.h: preprolexer.ll
+	$(LEX) -o preprolexer.cc preprolexer.ll
 
 y.tab.o: y.tab.cc y.tab.hh
 	$(CC) -c $(CFLAGS) y.tab.cc
@@ -48,5 +60,5 @@ clean:
 	cat /dev/null > log.txt
 	cat /dev/null > error.txt
 	cat /dev/null > output.c
-	rm -f $(OBJS) core y.* lex.yy.* ompparser.output ompparser.gv ompparser.dot ompparser.hh ompparser.cc omplexer.cc  fparse
+	rm -f $(OBJS) core y.* lex.yy.* ompparser.output ompparser.gv ompparser.dot ompparser.hh ompparser.cc omplexer.cc preproparser.cc preproparser.hh preprolexer.cc preproparser.gv preproparser.output fparse
 

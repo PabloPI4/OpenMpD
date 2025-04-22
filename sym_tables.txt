@@ -1,10 +1,84 @@
 ScopeTable # 1.1
+ 23 --> | < c , color > |
+ 28 --> | < iter , INT > |
+ 37 --> | < num_its , INT > |
+
+ScopeTable # 1.2.1
+
+ScopeTable # 1.2
+ 4 --> | < radius , FLOAT > |
+ 22 --> | < z0 , FLOAT_COMPLEX > |
+ 23 --> | < c , FLOAT_COMPLEX > |
+ 31 --> | < k , INT > || < modul , FLOAT > |
+ 34 --> | < n , INT > |
+
+ScopeTable # 1.3
+ 4 --> | < width , INT > || < radius , FLOAT > |
+ 6 --> | < x , INT > |
+ 7 --> | < y , INT > |
+ 10 --> | < im , FLOAT > |
+ 23 --> | < c , FLOAT_COMPLEX > |
+ 25 --> | < re , FLOAT > |
+ 32 --> | < l , INT > |
+ 35 --> | < height , INT > |
+
+ScopeTable # 1.4.1.1.1
+
+ScopeTable # 1.4.1.1
+
+ScopeTable # 1.4.1
+
+ScopeTable # 1.4
+ 4 --> | < width , INT > || < radius , FLOAT > |
+ 6 --> | < x , INT > |
+ 7 --> | < y , INT > |
+ 15 --> | < rgb , Pointer Symbol , color > |
+ 22 --> | < z0 , FLOAT_COMPLEX > |
+ 23 --> | < c , FLOAT_COMPLEX > |
+ 27 --> | < count , INT > |
+ 28 --> | < iter , INT > |
+ 29 --> | < i , INT > |
+ 31 --> | < k , INT > |
+ 35 --> | < height , INT > |
+
+ScopeTable # 1.5.1
+
+ScopeTable # 1.5.2.1
+
+ScopeTable # 1.5.2
+ 10 --> | < im , FLOAT > |
+ 25 --> | < re , FLOAT > |
+
+ScopeTable # 1.5
+ 4 --> | < width , INT > || < start_time , DOUBLE > || < tv_end , STRUCT_timeval > |
+ 7 --> | < argC , INT > |
+ 9 --> | < end_time , DOUBLE > |
+ 15 --> | < rgb , Pointer Symbol , color > |
+ 17 --> | < tv_start , STRUCT_timeval > |
+ 22 --> | < STRUCT_timeval , Struct Symbol , STRUCT_timeval , < tv_start , IDENTIFIER , STRUCT_timeval >, < tv_end , IDENTIFIER , STRUCT_timeval > > |
+ 23 --> | < c , FLOAT_COMPLEX > |
+ 26 --> | < argV , Array Symbol , CHAR < Array Size:  >  > |
+ 33 --> | < tiempo_trans , FLOAT > |
+ 35 --> | < height , INT > |
+
+ScopeTable # 1.6
+ 2 --> | < header1 , Array Symbol , UNSIGNED_CHAR < Array Size: 12 >  > |
+ 3 --> | < header2 , Array Symbol , UNSIGNED_CHAR < Array Size: 6 >  > |
+ 5 --> | < w , INT > |
+ 15 --> | < rgb , Array Symbol , color < Array Size:  >  > |
+ 17 --> | < filename , Pointer Symbol , CHAR > |
+ 28 --> | < h , INT > |
 
 ScopeTable # 1
  4 --> | < div_t , TYPEDEF_STRUCT > |
- 8 --> | < lldiv_t , TYPEDEF_STRUCT > |
+ 7 --> | < explode , Function Symbol , INT , Parameter List: < z0 , IDENTIFIER , FLOAT_COMPLEX >, < c , IDENTIFIER , FLOAT_COMPLEX >, < radius , IDENTIFIER , FLOAT >, < n , IDENTIFIER , INT > > |
+ 13 --> | < juliaSet , Function Symbol , color , Parameter List: < width , IDENTIFIER , INT >, < height , IDENTIFIER , INT >, < c , IDENTIFIER , FLOAT_COMPLEX >, < radius , IDENTIFIER , FLOAT >, < iter , IDENTIFIER , INT > > |
  16 --> | < wchar_t , TYPEDEF_INT > |
  22 --> | < size_t , TYPEDEF_LONG_UNSIGNED_INT > |
- 24 --> | < __ctype_get_mb_cur_max , Function Symbol , EXTERN_size_t , Parameter List: < void , VOID ,  > > |
+ 23 --> | < fcolor , Function Symbol , color , Parameter List: < iter , IDENTIFIER , INT >, < num_its , IDENTIFIER , INT > > |
  26 --> | < ldiv_t , TYPEDEF_STRUCT > |
+ 27 --> | < color , TYPEDEF_STRUCT > |
+ 28 --> | < tga_write , Function Symbol , VOID , Parameter List: < w , IDENTIFIER , INT >, < h , IDENTIFIER , INT >, < rgb , IDENTIFIER , color >, < filename , IDENTIFIER , CHAR > > |
+ 32 --> | < mapPoint , Function Symbol , FLOAT_COMPLEX , Parameter List: < width , IDENTIFIER , INT >, < height , IDENTIFIER , INT >, < radius , IDENTIFIER , FLOAT >, < x , IDENTIFIER , INT >, < y , IDENTIFIER , INT > > |
+ 33 --> | < main , Function Symbol , INT , Parameter List: < argC , IDENTIFIER , INT >, < argV , IDENTIFIER , CHAR > > |
 

@@ -3442,7 +3442,6 @@ int yywrap()
 
 // Standalone ompparser
 void parseOpenMP(const char* _input, void * _exprParse(const char*)) {
-    printf("Start parsing...\n");
     const char *input = _input;
     start_lexer(input);
     yyparse();

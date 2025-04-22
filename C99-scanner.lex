@@ -227,7 +227,7 @@ extern int error_count;
 		if (strcmp(yytext, "FILE") == 0) {
 			fprintf(stderr, "FILE en IDENTIFIER\n");
 		}
-		SymbolInfo *s = new SymbolInfo(yytext, (char *)"IDENTIFIER");
+		s = new SymbolInfo(yytext, (char *)"IDENTIFIER");
 		yylval.sym = s;
 		if (!MPIInitDone) {
 			if (strcmp(yytext, "argc") == 0) {
