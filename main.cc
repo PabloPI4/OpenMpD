@@ -12,6 +12,7 @@ FILE *inputFile;
 
 extern char *linea;
 extern int MVL_LINNUM;
+int num_errores_prepro = 0;
 
 extern void yyerror(const char *s);
 extern int yyparse ();
@@ -102,10 +103,28 @@ int main( int argc, const char* argv[] )
 
   prepro_in = preprocesado;
 
-  if (prepro_parse()) {
+  SymbolInfo *builtvalist = new SymbolInfo("__builtin_va_list", "IDENTIFIER");
+  builtvalist->setSymIsType(true);
+  SymbolInfo *IOFICH = new SymbolInfo("_IO_FILE", "IDENTIFIER");
+  IOFICH->setIsStruct(true);
+  SymbolInfo *STRUCTIOFICH = new SymbolInfo("STRUCT__IO_FILE", "IDENTIFIER");
+  STRUCTIOFICH->setIsStruct(true);
+  SymbolInfo *F128 = new SymbolInfo("_Float128", "IDENTIFIER");
+  F128->setSymIsType(true);
+
+  table.insert(builtvalist);
+  table.insert(IOFICH);
+  table.insert(STRUCTIOFICH);
+  table.insert(F128);
+
+  prepro_parse();
+
+  if (num_errores_prepro > 0) {
     errFile << "Error ejecutando preprocesador" << endl;
     exit(46);
   }
+
+  logFile << "Terminada lectura de preprocesador" << endl;
 
   fclose(preprocesado);
 
@@ -133,7 +152,6 @@ int main( int argc, const char* argv[] )
   yyparse();
 
   lastLine();
-  table.exitScope();
 
   logFile << endl;
   logFile << "Total lines: " << line_count << endl;

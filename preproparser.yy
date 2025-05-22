@@ -9,7 +9,7 @@ extern ofstream logFile;
 extern ofstream errFile;
 
 extern SymbolTable table;
-extern int elcuentadordelineas;
+extern int n_lineas_prepro;
 extern int num_errores_prepro;
 %}
 
@@ -201,11 +201,14 @@ declaration
 	}
 	
 	| declaration_specifiers init_declarator_list ';' {
+		logFile << "EMPIEZA EN 2" << endl;
 		$$ = new vector<SymbolInfo*>();
+		logFile << "HASTYPEDEF: " << $1->isStruct() << endl;
 		bool hasTypedef = (strstr($1->getSymbolType().c_str(), "TYPEDEF") != NULL);
 		if($1->isStruct()){
 			if($1->getParamList() != nullptr){
 				for(std::vector<SymbolInfo*>::size_type i = 0; i < $2->size(); i++){
+					logFile << "TYPE A: " << $2->at(i)->getSymbolName() << endl;
 					if(hasTypedef) $2->at(i)->setSymIsType(true);
 					$2->at(i)->setVariableType($1->getSymbolType());			
 					$2->at(i)->setIsStruct(true);
@@ -219,6 +222,8 @@ declaration
 				$1->setParamList($2);
 				$$->push_back($1);
 				for(std::vector<SymbolInfo*>::size_type i = 0; i < $2->size(); i++){
+					logFile << "PARAM[" << i << "] = " << $2->at(i)->getSymbolName() << endl;
+					if(hasTypedef) $2->at(i)->setSymIsType(true);
 					$2->at(i)->setVariableType($1->getSymbolName());
 					table.insert($2->at(i));
 				}
@@ -227,6 +232,7 @@ declaration
 		else{
 			for(std::vector<SymbolInfo*>::size_type i = 0; i < $2->size(); i++){
 				$2->at(i)->setVariableType($1->getSymbolType());
+				logFile << "TYPE A: " << $2->at(i)->getSymbolName() << endl;
 				if(hasTypedef) $2->at(i)->setSymIsType(true);
 				if(!$2->at(i)->isFunction()){
 					SymbolInfo* symbol = new SymbolInfo(*$2->at(i));
@@ -319,10 +325,12 @@ struct_or_union_specifier
 	}
 	| struct_or_union '{' struct_declaration_list '}'
 	| struct_or_union IDENTIFIER
-	{ 
+	{
 		$2->setIsStruct(true);
 		$2->setVariableType($1->getSymbolType() + "_" + $2->getSymbolName());
 		$2->setSymbolName($1->getSymbolType() + "_" + $2->getSymbolName());
+
+		logFile << "SE METE AQUIIIIII con: " << $2->getSymbolName() << endl;
 
 		table.insert($2);
 		$$ = $2;
@@ -671,9 +679,9 @@ void yyerror(char const *s)
 {
 	num_errores_prepro++;
 	//__extension__, __restrict y __atribute__
-	logFile << "Error in preprocesador at line " << elcuentadordelineas << " column: " << column << ": syntax error" << endl << endl;
-	errFile << "Error in preprocesador at line " << elcuentadordelineas << " column: " << column << ": syntax error" << endl << endl;
+	logFile << "Error in preprocesador at line " << n_lineas_prepro << " column: " << column << ": syntax error" << endl << endl;
+	errFile << "Error in preprocesador at line " << n_lineas_prepro << " column: " << column << ": syntax error" << endl << endl;
 
 	/* fflush(stdout);
-	printf("\n%*s\n%*s\n", elcuentadordelineas, "^", column, s); */
+	printf("\n%*s\n%*s\n", n_lineas_prepro, "^", column, s); */
 }

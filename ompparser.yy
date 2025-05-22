@@ -215,7 +215,7 @@ var_chunk_list_cluster_aux :  var_chunk_list_cluster_aux_aux
                               var_chunk_list_cluster_aux_aux
                             ;
 
-var_chunk_list_cluster : variable 
+var_chunk_list_cluster : variable
                           {
                             if (enScatter) {
                               addArgScatter($1);

@@ -486,7 +486,6 @@ public:
 //        Remove the current ScopeTable
         printCurrScopeTable();
         if(!isSymbolTableEmpty()){
-
             if (currScopeTable->getParentScope() == NULL) {
                 // reached the root scope
                 // cout << "ScopeTable# " << currScopeTable->getScopeId() << " removed" << endl;

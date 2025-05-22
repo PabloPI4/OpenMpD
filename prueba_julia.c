@@ -20,9 +20,12 @@ color fcolor(int iter,int num_its){
         color c;
 
 // Poner un color dependiente del no. de iteraciones
+	#pragma omp cluster
+	{
         c.re = 255;
         c.gr = (iter*20)%255;
         c.bl = (iter*20)%255;
+	}
         return c;
 }
 
@@ -31,6 +34,8 @@ int explode (float _Complex z0, float _Complex c, float radius, int n)
 int k=1;
 float modul;
 
+#pragma omp cluster
+{
 z0 = (z0*z0)+c;
 modul = cabsf(z0);
 
@@ -39,15 +44,19 @@ while ((k<=n) && (modul<=radius)){
 		modul = cabsf(z0);
                 k++;
 }
+}
 return k;
 }
 
 float _Complex mapPoint(int width,int height,float radius,int x,int y){
 	float _Complex c;
+	#pragma omp cluster
+	{
 	int l = (width<height)?width:height;
 	float re = 2*radius*(x - width/2.0)/l;
         float im = 2*radius*(y - height/2.0)/l;
 	c = re+im*I;
+	}
         return c;
 }
 
@@ -58,10 +67,9 @@ color *juliaSet(int width,int height,float _Complex c,float radius,int iter){
 	int count=0;
 
 	color *rgb;
-	rgb = calloc (width*height, sizeof(color));
- 
-#pragma omp cluster broad(width, height, c, radius, iter) gather(rgb[height*width]:chunk(width)) 
+#pragma omp cluster broad(radius, iter) gather(rgb[height*width]:chunk(width)) 
 {
+	rgb = calloc (width*height, sizeof(color));
 #pragma omp cluster teams distribute dist_schedule(static,1)
 
 #pragma omp parallel for private (x,y,k,i,z0) shared(rgb,width,height)
@@ -102,7 +110,6 @@ float tiempo_trans;
 		printf("Uso : %s\n", "<dim de la ventana, partes real e imaginaria de c, radio, iteraciones>");
 		exit(1);
 	}
-	else{
 		width = atoi(argV[1]);
 		height = width; // La ventana es cuadrada
 		if (width >DIM) {
@@ -120,6 +127,7 @@ float tiempo_trans;
 #else
 	gettimeofday(&tv_start, NULL);
 #endif
+	#pragma omp cluster broad(width, height, c)
 	rgb = juliaSet(width,height,c,atof(argV[4]), atoi(argV[5]));
 
 #ifdef _OPENMP
@@ -131,14 +139,11 @@ float tiempo_trans;
 	  (tv_end.tv_usec - tv_start.tv_usec); //en us
 	printf("Tiempo Julia = %f segundos\n", tiempo_trans/1000000);
 #endif
-	
-	}
 
 	tga_write ( width, height, rgb, "julia_set.tga" );
 
   	printf ( "\n" );
   	printf ( "JULIA_SET. Finalizado\n");
-
   	free(rgb);
 
   	return 0;

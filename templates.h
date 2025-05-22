@@ -44,8 +44,8 @@ extern int contadorTask;
 extern int enCluster;
 extern int chunk_pos;
 extern int enDistribute;
-extern int conArgc;
-extern int conArgv;
+extern char * conArgc;
+extern char * conArgv;
 extern int enSecuencial;
 
 extern int chunk;
@@ -491,19 +491,36 @@ void MPIInit(){
 
 void MPIInitParte2(){
     output.seekp(posInit);
+    char texto[152];
+    strcpy(texto, "\tMPI_Init(");
 
-    if (conArgc && conArgv) {
-        output.write("\tMPI_Init(&argc,&argv);\n\tMPI_Comm_size(MPI_COMM_WORLD,&__numprocs);\n\tMPI_Comm_rank(MPI_COMM_WORLD,&__taskid);\n\tDeclareTypesMPI();\nif (__taskid == 0) {\n", 151);
+    if (conArgc != NULL && conArgv != NULL) {
+        texto[10] = '&';
+        strcpy(texto+11, conArgc);
+        strcpy(texto+15, ",&");
+        strcpy(texto+17, conArgv);
     }
-    else if (conArgc) {
-        output.write("\tMPI_Init(&argc, NULL);\n\tMPI_Comm_size(MPI_COMM_WORLD,&__numprocs);\n\tMPI_Comm_rank(MPI_COMM_WORLD,&__taskid);\n\tDeclareTypesMPI();\nif (__taskid == 0) {\n", 151);
+    else if (conArgc != NULL) {
+        texto[10] = '&';
+        strcpy(texto+11, conArgc);
+        strcpy(texto+15, ", NULL");
     }
-    else if (conArgv) {
-        output.write("\tMPI_Init(NULL, &argv);\n\tMPI_Comm_size(MPI_COMM_WORLD,&__numprocs);\n\tMPI_Comm_rank(MPI_COMM_WORLD,&__taskid);\n\tDeclareTypesMPI();\nif (__taskid == 0) {\n", 151);
+    else if (conArgv != NULL) {
+        strcpy(texto + 10, "NULL, &");
+        strcpy(texto + 17, conArgv);
     }
     else {
-        output.write("\tMPI_Init(NULL , NULL);\n\tMPI_Comm_size(MPI_COMM_WORLD,&__numprocs);\n\tMPI_Comm_rank(MPI_COMM_WORLD,&__taskid);\n\tDeclareTypesMPI();\nif (__taskid == 0) {\n", 151);
+        strcpy(texto + 10, "NULL , NULL");
     }
+
+    if (!enSecuencial) {
+        strcpy(texto + 21, ");\n\tMPI_Comm_size(MPI_COMM_WORLD,&__numprocs);\n\tMPI_Comm_rank(MPI_COMM_WORLD,&__taskid);\n\tDeclareTypesMPI();\nif (__taskid == 0) {\n");
+    }
+    else {
+        strcpy(texto + 21, ");\n\tMPI_Comm_size(MPI_COMM_WORLD,&__numprocs);\n\tMPI_Comm_rank(MPI_COMM_WORLD,&__taskid);\n\tDeclareTypesMPI();\n                    \n");
+    }
+
+    output.write(texto, 151);
 
     enSecuencial = 1;
     
@@ -521,11 +538,17 @@ void IncludeString() {
 }
 
 void MPIEmpezarSecuencial() {
-    output << "if (__taskid == 0) {" << endl;
+    if (!enSecuencial) {
+        output << "if (__taskid == 0) {" << endl;
+        enSecuencial = 1;
+    }
 }
 
 void MPIWriteCluster() {
-    output << "}" << endl;
+    if (enSecuencial) {
+        output << "}" << endl;
+        enSecuencial = 0;
+    }
 }
 
 void MPIFinalize(){
@@ -605,7 +628,6 @@ void MPIFinalize(){
     	string broad = "";
         for(const auto& arg : args){
             std::vector<std::string> values = extractValues(arg);
-
             if (values.size() == 0) {
                 fprintf(stderr, "Sin variable en broad\n");
                 exit(126);
@@ -1261,6 +1283,7 @@ void GatherConChunk(std::vector<const char *> argsG) {
 
         "\t\tMPI_Gatherv(&" + vals.at(0);
         
+        fprintf(stderr, "SIZE DE %s = %ld\n", vals.at(0).data(), infoVar->getArrListSize());
         for (size_t j = 0; j < infoVar->getArrListSize(); j++) {
             gather += "[0]";
         }

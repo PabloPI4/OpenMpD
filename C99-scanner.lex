@@ -18,11 +18,11 @@ IS                      ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 extern ofstream output;
 extern void parseOpenMP(const char* _input, void * _exprParse(const char*));
 extern void yyerror(const char *);
-extern void MPIEmpezarSecuencial();
 extern string construirReductionDist(int it);
 extern string construirAllReductionDist(int it);
 extern void ReducirReduceConstVariables();
 extern void lastLine();
+int strcmp2(string s1, string s2);
 
 static void count(void);
 static void comment(void);
@@ -35,8 +35,8 @@ extern SymbolTable table;
 
 int column = 0;
 int line_count = 1;
-int conArgc = 0;
-int conArgv = 0;
+char * conArgc = NULL;
+char * conArgv = NULL;
 
 extern int n_llaves;
 extern int enCluster;
@@ -44,6 +44,7 @@ extern string guardarLineasDist;
 extern int dist_n_llaves;
 extern int enFor;
 extern int MPIInitDone;
+extern int MPIInitMainDone;
 extern std::vector<const char *> argsReduceOpsDistribute;
 extern std::vector<const char *> argsAllReduceOpsDistribute;
 extern std::vector<std::string> varsReduceConstruir;
@@ -210,32 +211,44 @@ extern int error_count;
 	count();
 	SymbolInfo *s = table.getSymbolInfo(yytext);
 	if(s != NULL && s->getSymIsType()){
-		if (strcmp(yytext, "FILE") == 0) {
-			fprintf(stderr, "FILE en USER_DEFINED\n");
-		}
 		yylval.sym = new SymbolInfo(yytext, (char *) yytext);
 		return USER_DEFINED;
 	}
 	else if (s != NULL) {
-		if (strcmp(yytext, "FILE") == 0) {
-			fprintf(stderr, "FILE en IDENTIFIER\n");
+		if (strcmp(yytext, "fB") == 0) {
+			fprintf(stderr, "fB en IDENTIFIER 1\n");
 		}
 		yylval.sym = s;
+
+		if (strcmp2(yytext, std::string("argc")) == 1) {
+			conArgc = (char *) malloc(strlen(yytext + 1));
+			strcpy(conArgc, yytext);
+			conArgc[strlen(yytext)] = '\0';
+		}
+		if (strcmp2(yytext, std::string("argv")) == 1) {
+			conArgv = (char *) malloc(strlen(yytext + 1));
+			strcpy(conArgv, yytext);
+			conArgv[strlen(yytext)] = '\0';
+		}
+			
 		return IDENTIFIER;
 	}
 	else {
-		if (strcmp(yytext, "FILE") == 0) {
-			fprintf(stderr, "FILE en IDENTIFIER\n");
+		if (strcmp(yytext, "fB") == 0) {
+			fprintf(stderr, "%s en IDENTIFIER 2\n", yytext);
 		}
 		s = new SymbolInfo(yytext, (char *)"IDENTIFIER");
 		yylval.sym = s;
-		if (!MPIInitDone) {
-			if (strcmp(yytext, "argc") == 0) {
-				conArgc = 1;
-			}
-			if (strcmp(yytext, "argv") == 0) {
-				conArgv = 1;
-			}
+
+		if (strcmp2(yytext, std::string("argc")) == 1) {
+			conArgc = (char *) malloc(strlen(yytext + 1));
+			strcpy(conArgc, yytext);
+			conArgc[strlen(yytext)] = '\0';
+		}
+		if (strcmp2(yytext, std::string("argv")) == 1) {
+			conArgv = (char *) malloc(strlen(yytext + 1));
+			strcpy(conArgv, yytext);
+			conArgv[strlen(yytext)] = '\0';
 		}
 
 		return IDENTIFIER;
@@ -383,6 +396,33 @@ void count(void)
 	}
 
 	//ECHO;
+}
+
+int strcmp2(string s1, string s2) {
+	int res = 1;
+
+	unsigned long int pos;
+	
+	for (pos = 0; pos < s1.size() && pos < s2.size(); pos++) {
+		char c1 = s1.at(pos);
+
+		if (c1 < 123 && c1 > 64) {
+			if (s2.at(pos) - c1 != 0 && s2.at(pos) - c1 != 32) {
+				res = 0;
+				break;
+			}
+		}
+		else if (c1 != s2.at(pos)) {
+			res = 0;
+			break;
+		}
+	}
+
+	if (s1.size() - pos > 0 || s2.size() - pos > 0) {
+		res = 0;
+	}
+
+	return res;
 }
 
 

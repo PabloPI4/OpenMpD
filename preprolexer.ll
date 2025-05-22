@@ -26,8 +26,8 @@ extern ofstream errFile;
 extern SymbolTable table;
 
 using namespace std;
-int elcuentadordelineas = 1;
-int num_errores_prepro = 0;
+int n_lineas_prepro = 1;
+extern int num_errores_prepro;
 
 extern PREPRO_STYPE prepro_lval;
 
@@ -74,27 +74,34 @@ extern PREPRO_STYPE prepro_lval;
 "static"		{ count(); return(STATIC); }
 "struct"		{ count(); return(STRUCT); }
 "switch"		{ count(); return(SWITCH); }
-"typedef"		{ count(); return(TYPEDEF); }
+"typedef"		{ count(); logFile << "LEE TYPEDEF" << endl; return(TYPEDEF); }
 "union"			{ count(); return(UNION); }
 "unsigned"		{ count(); return(UNSIGNED); }
 "void"			{ count(); return(VOID); }
 "volatile"		{ count(); return(VOLATILE); }
 "while"			{ count(); return(WHILE); }
+"__extension__" { /* consume token */ }
+"__restrict" { /* consume token */ }
+"__inline" { /* consume token */ }
+[\n" "\t]*"__attribute__"[\n" "\t]*"(("({L}({L}|{D})*|","|[" "\t]+|{D}+|"("|")"|"*")+"))" { logFile << "En att" << endl; /* consume token */ }
+[\n" "\t]*"__asm__"[\n" "\t]*"("({L}({L}|{D})*|","|[" "\t]+|{D}+|"("|")"|"\""|"*")+")" { logFile << "En asm" << endl; /* consume token */ }
 
 {L}({L}|{D})* {
-	logFile << "LEYENDO: " << yytext << endl;
 	count();
 	SymbolInfo *s = table.getSymbolInfo(yytext);
 	if(s != NULL && s->getSymIsType()){
 		prepro_lval.sym = new SymbolInfo(yytext, (char *) yytext);
+		logFile << "LEYENDO COMO USER_DEFINED: " << yytext << " con tipo: " << s->getSymbolType() << endl;
 		return USER_DEFINED;
 	}
 	else if (s != NULL) {
 		prepro_lval.sym = s;
+		logFile << "LEYENDO COMO IDENTIFIER: " << yytext << " con tipo: " << s->getSymbolType() << endl;
 		return IDENTIFIER;
 	}
 	else {
 		prepro_lval.sym = new SymbolInfo(yytext, (char *)"IDENTIFIER");
+		logFile << "LEYENDO COMO IDENTIFIER: " << yytext << " con tipo: " << prepro_lval.sym->getSymbolType() << endl;
 		return IDENTIFIER;
 	}
 }
@@ -109,12 +116,12 @@ extern PREPRO_STYPE prepro_lval;
 }
 L?'(\\.|[^\\'\n])+'	{ count(); return(CONSTANT); }
 
-{D}+{E}{FS}?		{ count(); return(CONSTANT); }
-{D}*"."{D}+{E}?{FS}?	{ count(); return(CONSTANT); }
-{D}+"."{D}*{E}?{FS}?	{ count(); return(CONSTANT); }
-0[xX]{H}+{P}{FS}?	{ count(); return(CONSTANT); }
-0[xX]{H}*"."{H}+{P}{FS}?     { count(); return(CONSTANT); }
-0[xX]{H}+"."{H}*{P}{FS}?     { count(); return(CONSTANT); }
+{D}+{E}"i"?{FS}?		{ count(); return(CONSTANT); }
+{D}*"."{D}+{E}?"i"?{FS}?	{ count(); return(CONSTANT); }
+{D}+"."{D}*{E}?"i"?{FS}?	{ count(); return(CONSTANT); }
+0[xX]{H}+{P}"i"?{FS}?	{ count(); return(CONSTANT); }
+0[xX]{H}*"."{H}+{P}"i"?{FS}?     { count(); return(CONSTANT); }
+0[xX]{H}+"."{H}*{P}"i"?{FS}?     { count(); return(CONSTANT); }
 
 
 L?\"(\\.|[^\\"\n])*\"	{ count(); return(STRING_LITERAL); }
@@ -166,16 +173,14 @@ L?\"(\\.|[^\\"\n])*\"	{ count(); return(STRING_LITERAL); }
 "|"			{ count(); return('|'); }
 "?"			{ count(); return('?'); }
 
-[ \t\v\n\f]		{ count(); if (strstr(yytext, "\n") != NULL) {elcuentadordelineas++;} }
+[ \t\v\n\f]		{ count(); if (strstr(yytext, "\n") != NULL) {n_lineas_prepro++;} }
 .			{ /* Add code to complain about unmatched characters */ }
 
 %%
 
 int yywrap() {
-	if (num_errores_prepro > 0) {
-		return 1;
-	}
-	return 0;
+	logFile << "Finalizando lectura de preprocesador" << endl;
+	return 1;
 }
 
 

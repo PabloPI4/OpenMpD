@@ -42,6 +42,9 @@ extern char *declare;
 extern string scheduleDist;
 extern int llamadaFuncion;
 extern int escribirSeq;
+extern int enMain;
+extern int enFuncion;
+extern int enSecuencial;
 
 extern void MPIEmpezarSecuencial();
 extern void finSecuencial();
@@ -96,6 +99,7 @@ void updateText() {
         for (int i = 0; i < x; i++)
             sentencia;
         */
+
         if (enFor == -1 && dist_n_llaves == 0 && linea) {
             if (comprobarLlavesCluster(linea) && (strstr(linea, "for") == NULL || strstr(linea, "while") == NULL || strstr(linea, "if") == NULL || strstr(linea, "switch") == NULL)) {
                 dist_n_llaves = -100;
@@ -122,8 +126,9 @@ void updateText() {
             enFor = -1;
         }
 
-        if(zonaPragma == 1 && finalizeOK == 0 && task == 0 ) {
+        if(zonaPragma == 1 && finalizeOK == 0 && task == 0 && enCluster && !enSecuencial) {
             output << "\tif (__taskid == 0) {\n" << endl;
+            enSecuencial = 1;
             zonaPragma = 0;
         }
 
@@ -174,27 +179,6 @@ void updateText() {
         linea = NULL;
 		deletePrePragma = 0;
 
-        //Si se han leido el mismo numero de llaves de apertura que de cierre estando en cluster y estos dos son mayor que 0, entonces se cierra el cluster
-        if (enCluster && n_llaves == -100) {
-            if (enReductionCluster) {
-                calcularReduceFinal(true);
-                enReductionCluster = 0;
-            }
-            if (enAllReductionCluster) {
-                calcularAllReduceFinal(true);
-                enAllReductionCluster = 0;
-            }
-            if (enGather) {
-                MPIGather();
-                enGather = 0;
-            }
-            if (enAllGather) {
-                MPIAllGather();
-                enAllGather = 0;
-            }
-            MPIEmpezarSecuencial();
-            enCluster = 0;
-        }
         //Si se han leido el mismo numero de llaves de apertura que de cierre estando en distribute y estos dos son mayor que 0, entonces se cierra el distribute
         if (enDistribute && dist_n_llaves == -100) {
             if (meterLLavesFor == 1) {
@@ -219,6 +203,28 @@ void updateText() {
             enDistribute = 0;
             enFor = 0;
             meterLLavesFor = 0;
+        }
+        
+        //Si se han leido el mismo numero de llaves de apertura que de cierre estando en cluster y estos dos son mayor que 0, entonces se cierra el cluster
+        if (enCluster && n_llaves == -100) {
+            if (enReductionCluster) {
+                calcularReduceFinal(true);
+                enReductionCluster = 0;
+            }
+            if (enAllReductionCluster) {
+                calcularAllReduceFinal(true);
+                enAllReductionCluster = 0;
+            }
+            if (enGather) {
+                MPIGather();
+                enGather = 0;
+            }
+            if (enAllGather) {
+                MPIAllGather();
+                enAllGather = 0;
+            }
+            MPIEmpezarSecuencial();
+            enCluster = 0;
         }
     }
     

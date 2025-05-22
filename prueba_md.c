@@ -196,7 +196,7 @@ void compute ( int np, int nd, double pos[], double vel[], double mass,
   pe = 0.0;
   ke = 0.0;
 
-#pragma omp cluster teams distribute reduction(+:pe) reduction(+:ke) 
+#pragma omp teams distribute reduction(+:pe) reduction(+:ke) 
 #pragma omp parallel for simd private(i,k,j,d2,d,rij) schedule(static)
   for ( k = 0; k < np; k++ )
   {
@@ -361,7 +361,7 @@ void update ( int np, int nd, double pos[], double vel[], double f[],
 
   rmass = 1.0 / mass;
 
-#pragma omp cluster teams distribute
+#pragma omp teams distribute
 #pragma omp parallel for simd private(i,j) schedule(static)
   for ( j = 0; j < np; j++ )
   {

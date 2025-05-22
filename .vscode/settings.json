@@ -93,6 +93,8 @@
         "__tree": "c",
         "filesystem": "c",
         "ios": "c",
-        "omp.h": "c"
+        "omp.h": "c",
+        "queue": "c",
+        "stack": "c"
     }
 }

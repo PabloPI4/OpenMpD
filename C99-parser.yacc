@@ -19,6 +19,7 @@ int llamadaFuncion = 0;
 int activarDeclaracion = 0;
 int escribirSeq = 0;
 int enSecuencial = 0;
+int n_point = 0;
 extern int enCluster;
 
 extern ofstream logFile;
@@ -211,7 +212,7 @@ declaration
 			table.insert($1);
 		}
 	}
-	
+
 	| declaration_specifiers init_declarator_list ';' {
 		$$ = new vector<SymbolInfo*>();
 		bool hasTypedef = (strstr($1->getSymbolType().c_str(), "TYPEDEF") != NULL);
@@ -490,7 +491,12 @@ function_specifier
 	;
 
 declarator
-	: pointer direct_declarator { $2->setIsPointer(true); $$ = $2; }
+	: pointer direct_declarator { $2->setIsPointer(true); 
+		for(int addSize = 0; addSize < n_point; addSize++) {
+			$2->addArrSize("0");
+		}
+		$$ = $2;
+		n_point = 0;}
 	| direct_declarator	{ $$ = $1;}
 	;
 
@@ -551,9 +557,9 @@ direct_declarator
 	;
 
 pointer
-	: '*'
+	: '*' {n_point++;}
 	| '*' type_qualifier_list
-	| '*' pointer
+	| '*' {n_point++;} pointer
 	| '*' type_qualifier_list pointer
 	;
 
@@ -593,9 +599,9 @@ type_name
 	;
 
 abstract_declarator
-	: pointer
+	: pointer {n_point = 0;}
 	| direct_abstract_declarator
-	| pointer direct_abstract_declarator
+	| pointer {n_point = 0;} direct_abstract_declarator
 	;
 
 direct_abstract_declarator
@@ -675,7 +681,7 @@ compound_statement
 			}
 
 			if (!enMain){
-				if (enFuncion == 2) {
+				if (enFuncion == 2 && enSecuencial) {
 					output << "}" << endl;
 					enFuncion = 0;
 				}
@@ -747,7 +753,7 @@ jump_statement
 			MPIFinalize();
 			main_end = 0;
 		}
-		if (enFuncion == 2) {
+		if (enFuncion == 2 && enSecuencial) {
 			output << "}" << endl;
 			enFuncion = 0;
 		}
@@ -759,7 +765,7 @@ jump_statement
 			MPIFinalize();
 			main_end = 0;
 		}
-		if (enFuncion == 2) {
+		if (enFuncion == 2 && enSecuencial) {
 			output << "}" << endl;
 			enFuncion = 0;
 		}
