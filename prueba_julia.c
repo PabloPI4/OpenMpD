@@ -16,26 +16,23 @@ typedef struct{
 
 void tga_write ( int w, int h, color rgb[], char *filename );
 
+#pragma omp cluster
 color fcolor(int iter,int num_its){
         color c;
 
 // Poner un color dependiente del no. de iteraciones
-	#pragma omp cluster
-	{
-        c.re = 255;
-        c.gr = (iter*20)%255;
-        c.bl = (iter*20)%255;
-	}
-        return c;
+    c.re = 255;
+    c.gr = (iter*20)%255;
+    c.bl = (iter*20)%255;
+    return c;
 }
 
+#pragma omp cluster
 int explode (float _Complex z0, float _Complex c, float radius, int n)
 {
 int k=1;
 float modul;
 
-#pragma omp cluster
-{
 z0 = (z0*z0)+c;
 modul = cabsf(z0);
 
@@ -44,20 +41,18 @@ while ((k<=n) && (modul<=radius)){
 		modul = cabsf(z0);
                 k++;
 }
-}
 return k;
 }
 
+#pragma omp cluster
 float _Complex mapPoint(int width,int height,float radius,int x,int y){
 	float _Complex c;
-	#pragma omp cluster
-	{
+
 	int l = (width<height)?width:height;
 	float re = 2*radius*(x - width/2.0)/l;
         float im = 2*radius*(y - height/2.0)/l;
 	c = re+im*I;
-	}
-        return c;
+    return c;
 }
 
 color *juliaSet(int width,int height,float _Complex c,float radius,int iter){
@@ -70,7 +65,7 @@ color *juliaSet(int width,int height,float _Complex c,float radius,int iter){
 #pragma omp cluster broad(radius, iter) gather(rgb[height*width]:chunk(width)) 
 {
 	rgb = calloc (width*height, sizeof(color));
-#pragma omp cluster teams distribute dist_schedule(static,1)
+#pragma omp teams distribute dist_schedule(static,1)
 
 #pragma omp parallel for private (x,y,k,i,z0) shared(rgb,width,height)
 	for(x=0;x<height;x++){

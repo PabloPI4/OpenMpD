@@ -50,16 +50,17 @@ void Mult_ikj(int fA, int cA, int cB, float matA[fA][cA], float matB[cA][cB], fl
 // Debería asignar esa n filas a cada uno y el último lo que quedase
 
 // #pragma omp cluster broad(fA, cA, fB, cB) scatter(matA[fA*cA]:chunk(n*cA)) broad(matB[fB*cB]) gather(matC[fA*cB]:chunk(n*cB))
-#pragma omp cluster broad(fA, cA, fB, cB) scatter(matA[fA*cA]:chunk(cA)) broad(matB[fB*cB]) gather(matC[fA*cB]:chunk(cB))
-#pragma omp teams distribute dist_schedule(static,cA)
+#pragma omp cluster scatter(matA[fA][cA]:chunk(cA)) broad(matB[fB][cB]) gather(matC[fA][cB]:chunk(cB))
+#pragma omp teams distribute dist_schedule(static,1)
 #pragma omp parallel for private(r)
-     for (i=0; i<fC; i++)
+     for (i=0; i<fC; i++) {
         for (k=0; k<cC; k++) {
           r = matA[i][k];
-          for (j=0; j<cB; j++)
+          for (j=0; j<cB; j++) {
                matC[i][j] += r * matB[k][j];
-
+          }
         }
+     }
 }
 
 void Mult_ijk(int fA, int cA, int cB, float matA[fA][cA], float matB[cA][cB],
@@ -73,8 +74,8 @@ float matC[fA][cB]) {
 // Ni OpenMP ni MPI se llevan bien como variables que no sean 1-D, contiguas
 // Creo que no vale la pena plantearlo
 // #pragma omp cluster broad(fA, cA, fB, cB) scatter(matA[fA][cA]:chunk(n*cA)) broad(matB[fB][cB]) gather(matC[fA][cB]:chunk(n*cB))
-#pragma omp cluster broad(fA, cA, fB, cB) scatter(matA[fA][cA]:chunk(cA)) broad(matB[fB][cB]) gather(matC[fA][cB]:chunk(cB))
-#pragma omp teams distribute dist_schedule(static,cA)
+#pragma omp cluster scatter(matA[fA][cA]:chunk(cA)) broad(matB[fB][cB]) gather(matC[fA][cB]:chunk(cB))
+#pragma omp teams distribute dist_schedule(static,1)
 #pragma omp parallel for private(result)
     for (i=0; i<fC; i++) {
         for (j=0; j<cC; j++) {
@@ -121,7 +122,7 @@ int main (int argc, char* argv[])
 
 	}
 	printf("Producto A(%d, %d) x B(%d, %d)\n", F1, C1, F2, C2);
-
+#pragma omp cluster data broad(F1, C1, F2, C2)
     float (*matA)[C1] =     calloc(F1,C1*sizeof(float)); // M1 * N1
     float (*matB)[C2] =     calloc(F2,C2*sizeof(float)); // M2 * N2
     float (*matC)[C2] =     calloc(F1,C2*sizeof(float)); // M1 * N2
@@ -130,14 +131,14 @@ int main (int argc, char* argv[])
     inicializarMatriz (F2, C2, matB);
 
     gettimeofday(&t, NULL);
-#pragma omp cluster broad(F1, C1, F2, C2) 
+#pragma omp cluster
     Mult_ijk(F1, C1, C2, matA, matB, matC);
     gettimeofday(&t2, NULL);
     segundos = (((t2.tv_usec - t.tv_usec)/1000000.0f)  + (t2.tv_sec - t.tv_sec));
     printf("Total time using ijk was %f seconds\n", segundos);
     
     gettimeofday(&t, NULL);
-#pragma omp cluster broad(F1, C1, F2, C2) 
+#pragma omp cluster
     Mult_ikj(F1, C1, C2, matA, matB, matC_ikj);
     gettimeofday(&t2, NULL);
     segundos = (((t2.tv_usec - t.tv_usec)/1000000.0f)  + (t2.tv_sec - t.tv_sec));

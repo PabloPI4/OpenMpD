@@ -399,6 +399,9 @@ public:
     }
 
     SymbolInfo *lookup(string key) {
+        if (key.compare("b") == 0) {
+            fprintf(stderr, "EMPIEZAAAA\n");
+        }
         int idx = sdbmhash(key);
         SymbolInfo *currSymbol = chainHashTable[idx];
         if (currSymbol == NULL) {
@@ -407,6 +410,9 @@ public:
 
         int c = 0;
         while (currSymbol != NULL) {
+            if (key.compare("b") == 0) {
+                fprintf(stderr, "AAAAAAAAAA: %s\n", currSymbol->getSymbolName().data());
+            }
             if (currSymbol->getSymbolName() == key) {
                 currSymbol->setHashPos(c);
                 return currSymbol;

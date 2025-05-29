@@ -101,7 +101,7 @@ void updateText() {
         */
 
         if (enFor == -1 && dist_n_llaves == 0 && linea) {
-            if (comprobarLlavesCluster(linea) && (strstr(linea, "for") == NULL || strstr(linea, "while") == NULL || strstr(linea, "if") == NULL || strstr(linea, "switch") == NULL)) {
+            if (comprobarLlavesCluster(linea) && (strstr(linea, "for") == NULL && strstr(linea, "while") == NULL && strstr(linea, "if") == NULL && strstr(linea, "switch") == NULL)) {
                 dist_n_llaves = -100;
             }
         }
@@ -223,7 +223,10 @@ void updateText() {
                 MPIAllGather();
                 enAllGather = 0;
             }
-            MPIEmpezarSecuencial();
+
+            if (enFuncion > 0 || enMain > 0) {
+                MPIEmpezarSecuencial();
+            }
             enCluster = 0;
         }
     }

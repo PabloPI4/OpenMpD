@@ -1,7 +1,7 @@
 CC=g++
 # CFLAGS=-gx -DBASE_REPRESENTATION
 #CFLAGS=-gx 
-CFLAGS=-Wall
+CFLAGS=-Wall -g
 LDFLAGS=-ll
 
 YACC= bison  

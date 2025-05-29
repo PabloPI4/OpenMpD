@@ -129,13 +129,13 @@ int main ( int argc, char *argv[] )
 
   initialize ( np, nd, pos, vel, acc );
 
-#pragma omp cluster map(broad:np, nd, dt, mass, step_num, pos[0:np*nd], vel[0:np*nd], acc[0:np*nd]) map(alloc: force[0:np*nd])
+#pragma omp cluster broad(np, nd, dt, mass, step_num, pos[np*nd], vel[np*nd], acc[np*nd]) alloc(force[np*nd])
 {
   for ( step = 0; step <= step_num; step++ )
   {
     if ( step != 0 ) {
       update ( np, nd, pos, vel, force, acc, mass, dt );
-#pragma omp cluster update map(allgather:pos[np*nd:chunk(nd)])
+#pragma omp cluster update allgather(pos[np*nd]:chunk(nd))
    }
 
     compute ( np, nd, pos, vel, mass, force, &potential, &kinetic );

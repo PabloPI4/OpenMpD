@@ -1,9 +1,10 @@
-# include <math.h>
-# include <stdio.h>
-# include <stdlib.h>
-# include <time.h>
-# include <omp.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <omp.h>
 #include <sys/time.h>
+#include <string.h>
 
 #define DIM 8192
 
@@ -95,9 +96,9 @@ float tiempo_trans;
 
 // Usa schedule (static,1) para que las filas más pesadas se repartan
 // uniformemente, en MPI y OpenMP
-#pragma omp cluster map(alloc:count[0:m*n])
+#pragma omp cluster
 {
-#pragma omp teams distribute reduction(max:c_max) dist_schedule (static,1)
+#pragma omp teams distribute reduction(max:c_max) dist_schedule(static,1)
   #pragma omp parallel for simd private(j,x,y) schedule(static,1) 
   for ( i = 0; i < m; i++ )
   {
@@ -120,14 +121,14 @@ float tiempo_trans;
 /*
   Set the image data.
 */
-#pragma omp cluster update(broad:c_max)
+#pragma omp cluster update broad(c_max)
 } // Fin cluster-1 
 
 printf("c_max %d\n", c_max);
 
 // Usa chunk:n para repartir filas enteras para que coincida con el 
 // schedule, pero complica mucho el gather, que va por bloques, no filas
-#pragma omp cluster map (gather:r[m*n:chunk(n)], g[m*n:chunk(n)], b[m*n:chunk(n)])
+#pragma omp cluster gather(r[m*n]:chunk(n), g[m*n]:chunk(n), b[m*n]:chunk(n))
 {
 #pragma omp teams distribute dist_schedule(static,1)
   #pragma omp parallel for simd private(j,c) schedule(guided)
@@ -189,6 +190,7 @@ printf("c_max %d\n", c_max);
   return 0;
 }
 /******************************************************************************/
+#pragma omp cluster
 int explode ( float x, float y, int count_max )
 /******************************************************************************/
 /*

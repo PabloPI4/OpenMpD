@@ -1283,7 +1283,6 @@ void GatherConChunk(std::vector<const char *> argsG) {
 
         "\t\tMPI_Gatherv(&" + vals.at(0);
         
-        fprintf(stderr, "SIZE DE %s = %ld\n", vals.at(0).data(), infoVar->getArrListSize());
         for (size_t j = 0; j < infoVar->getArrListSize(); j++) {
             gather += "[0]";
         }
@@ -1350,7 +1349,7 @@ void GatherSinChunk(std::vector<const char *> argsG) {
         "\t\tassert((__displs[__numprocs - 1] + __counts[__numprocs - 1]) == " + vals.at(1) + mult + ");\n" +
         "\t}\n\n" +
 
-        "\tMPI_Gatherv(" + vals.at(0);
+        "\tMPI_Gatherv(&" + vals.at(0);
         
         for (size_t j = 0; j < infoVar->getArrListSize(); j++) {
             gather += "[0]";
