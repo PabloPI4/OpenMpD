@@ -53,14 +53,12 @@ void Mult_ikj(int fA, int cA, int cB, float matA[fA][cA], float matB[cA][cB], fl
 #pragma omp cluster scatter(matA[fA][cA]:chunk(cA)) broad(matB[fB][cB]) gather(matC[fA][cB]:chunk(cB))
 #pragma omp teams distribute dist_schedule(static,1)
 #pragma omp parallel for private(r)
-     for (i=0; i<fC; i++) {
+     for (i=0; i<fC; i++)
         for (k=0; k<cC; k++) {
           r = matA[i][k];
-          for (j=0; j<cB; j++) {
+          for (j=0; j<cB; j++)
                matC[i][j] += r * matB[k][j];
-          }
         }
-     }
 }
 
 void Mult_ijk(int fA, int cA, int cB, float matA[fA][cA], float matB[cA][cB],
